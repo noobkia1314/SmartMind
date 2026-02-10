@@ -342,7 +342,13 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
         <div className="lg:col-span-8 space-y-6">
           {goal.mindMap && (
-            <MindMap data={goal.mindMap} isCollapsed={mindMapCollapsed} onToggle={() => setMindMapCollapsed(!mindMapCollapsed)} />
+            <MindMap 
+              data={goal.mindMap} 
+              isCollapsed={mindMapCollapsed} 
+              onToggle={() => setMindMapCollapsed(!mindMapCollapsed)}
+              onViewTasks={() => setShowTaskModal(true)}
+              hasTasks={goal.tasks.length > 0}
+            />
           )}
 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-sm overflow-hidden">
