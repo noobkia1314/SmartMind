@@ -4,7 +4,7 @@ import {
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
@@ -28,7 +28,11 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
   // Local entry states
   const [foodInput, setFoodInput] = useState('');
-  const [exerciseInput, setExerciseInput] = useState({ name: '', duration: 30 });
+  const [exerciseInput, setExerciseInput] = useState<{name: string; value: number; unit: 'minutes' | 'sets' | 'reps'}>({ 
+    name: '', 
+    value: 30, 
+    unit: 'minutes' 
+  });
   const [financeInput, setFinanceInput] = useState({ type: 'expense' as 'income' | 'expense', category: '', amount: 0, description: '' });
   const [readingInput, setReadingInput] = useState({ title: '', totalPages: 100, readToday: 0, summary: '' });
 
@@ -71,16 +75,17 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     if (!exerciseInput.name || !gemini) return;
     setLoading(true);
     try {
-      const data = await gemini.calculateExercise(exerciseInput.name, exerciseInput.duration);
+      const data = await gemini.calculateExercise(exerciseInput.name, exerciseInput.value, exerciseInput.unit);
       const newEntry: ExerciseEntry = {
         id: crypto.randomUUID(),
         name: exerciseInput.name,
-        duration: exerciseInput.duration,
+        value: exerciseInput.value,
+        unit: exerciseInput.unit,
         caloriesBurned: data.caloriesBurned,
         date: selectedDate
       };
       onUpdateGoal({ ...goal, exerciseLogs: [...goal.exerciseLogs, newEntry] });
-      setExerciseInput({ name: '', duration: 30 });
+      setExerciseInput({ ...exerciseInput, name: '', value: exerciseInput.unit === 'minutes' ? 30 : 3 });
     } catch (err) {
         console.error("Log exercise failed", err);
     } finally {
@@ -129,7 +134,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     if (!gemini) return;
     setLoading(true);
     setIsServiceBusy(false);
-    const summary = `Goal: ${goal.title}. Total Tasks: ${goal.tasks.length}, Completed: ${goal.tasks.filter(t => t.completed).length}. Total Calories: ${goal.foodLogs.reduce((acc, f) => acc + f.calories, 0)}. Fitness duration: ${goal.exerciseLogs.reduce((acc, e) => acc + e.duration, 0)}. Finance balance: ${goal.financeLogs.reduce((acc, f) => acc + (f.type === 'income' ? f.amount : -f.amount), 0)}.`;
+    const summary = `Goal: ${goal.title}. Total Tasks: ${goal.tasks.length}, Completed: ${goal.tasks.filter(t => t.completed).length}. Total Calories: ${goal.foodLogs.reduce((acc, f) => acc + f.calories, 0)}. Fitness duration: ${goal.exerciseLogs.reduce((acc, e) => acc + (e.unit === 'minutes' ? e.value : 0), 0)}. Finance balance: ${goal.financeLogs.reduce((acc, f) => acc + (f.type === 'income' ? f.amount : -f.amount), 0)}.`;
     try {
       const advice = await gemini.getCoachAdvice(summary);
       setCoachAdvice(advice || "Coach is momentarily unavailable.");
@@ -155,6 +160,24 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const dailyTotalCaloriesBurned = useMemo(() => 
     dailyExerciseLogs.reduce((acc, log) => acc + log.caloriesBurned, 0),
   [dailyExerciseLogs]);
+
+  const getUnitLabel = (unit: string) => {
+    switch (unit) {
+      case 'minutes': return '分鐘';
+      case 'sets': return '組數';
+      case 'reps': return '次數';
+      default: return '';
+    }
+  };
+
+  const getUnitIcon = (unit: string) => {
+    switch (unit) {
+      case 'minutes': return <Clock size={16} />;
+      case 'sets': return <Dumbbell size={16} />;
+      case 'reps': return <Repeat size={16} />;
+      default: return null;
+    }
+  };
 
   // Mini Calendar logic
   const daysInMonth = useMemo(() => {
@@ -359,26 +382,39 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                       今日總運動消耗: {dailyTotalCaloriesBurned} kcal
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  
+                  <div className="flex flex-col gap-3">
                     <input 
                       type="text" 
-                      placeholder="運動項目 (例如: 跑步)"
+                      placeholder="運動項目 (例如: 跑步、深蹲、臥推)"
                       value={exerciseInput.name}
                       onChange={e => setExerciseInput({...exerciseInput, name: e.target.value})}
-                      className="bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
-                    <div className="flex gap-2">
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <select 
+                        value={exerciseInput.unit} 
+                        onChange={e => setExerciseInput({...exerciseInput, unit: e.target.value as any})}
+                        className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white font-bold focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="minutes">分鐘</option>
+                        <option value="sets">組數</option>
+                        <option value="reps">次數</option>
+                      </select>
+                      
                       <input 
                         type="number" 
-                        placeholder="時間 (分)"
-                        value={exerciseInput.duration}
-                        onChange={e => setExerciseInput({...exerciseInput, duration: parseInt(e.target.value) || 0})}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="數值"
+                        value={exerciseInput.value || ''}
+                        onChange={e => setExerciseInput({...exerciseInput, value: parseInt(e.target.value) || 0})}
+                        className="bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                       />
+
                       <button 
                         onClick={handleAddExercise}
                         disabled={loading || !exerciseInput.name}
-                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3 transition-all active:scale-95"
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3 transition-all active:scale-95 shadow-lg"
                       >
                         {loading ? <RefreshCw className="animate-spin" size={18}/> : <Plus size={18} />}
                         記錄
@@ -389,18 +425,21 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                   <div className="mt-6 space-y-2">
                     <h4 className="font-bold text-slate-400 uppercase text-xs tracking-widest mb-3">今日記錄</h4>
                     {dailyExerciseLogs.length === 0 ? (
-                      <p className="text-slate-600 italic text-sm text-center py-6 bg-slate-950/30 rounded-2xl border border-dashed border-slate-800">尚未記錄任何運動</p>
+                      <div className="text-center py-10 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-950/30">
+                        <Activity size={32} className="mx-auto text-slate-700 mb-2 opacity-20" />
+                        <p className="text-slate-600 italic text-sm">尚未記錄任何運動</p>
+                      </div>
                     ) : (
                       dailyExerciseLogs.map(log => (
                         <div key={log.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors group">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-xl flex items-center justify-center">
-                              <Activity size={20} />
+                              {getUnitIcon(log.unit || 'minutes')}
                             </div>
                             <div>
-                              <p className="font-bold text-white">{log.name}</p>
-                              <p className="text-xs text-slate-500 font-bold">
-                                {log.duration} 分鐘 | 估計消耗 <span className="text-rose-400">{log.caloriesBurned} kcal</span>
+                              <p className="font-bold text-white leading-tight">{log.name}</p>
+                              <p className="text-xs text-slate-500 font-bold mt-1">
+                                {log.value} {getUnitLabel(log.unit || 'minutes')} | 估計消耗 <span className="text-rose-400">{log.caloriesBurned} kcal</span>
                               </p>
                             </div>
                           </div>
