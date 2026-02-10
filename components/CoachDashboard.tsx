@@ -4,7 +4,7 @@ import {
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
@@ -24,6 +24,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const [activeTab, setActiveTab] = useState<RecordType>(RecordType.DIET);
   const [loading, setLoading] = useState(false);
   const [coachAdvice, setCoachAdvice] = useState<string>('');
+  const [isServiceBusy, setIsServiceBusy] = useState(false);
 
   // Local entry states
   const [foodInput, setFoodInput] = useState('');
@@ -122,12 +123,21 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const getAdvice = async () => {
     if (!gemini) return;
     setLoading(true);
+    setIsServiceBusy(false);
     const summary = `Goal: ${goal.title}. Total Tasks: ${goal.tasks.length}, Completed: ${goal.tasks.filter(t => t.completed).length}. Total Calories: ${goal.foodLogs.reduce((acc, f) => acc + f.calories, 0)}. Fitness duration: ${goal.exerciseLogs.reduce((acc, e) => acc + e.duration, 0)}. Finance balance: ${goal.financeLogs.reduce((acc, f) => acc + (f.type === 'income' ? f.amount : -f.amount), 0)}.`;
     try {
       const advice = await gemini.getCoachAdvice(summary);
       setCoachAdvice(advice || "Coach is momentarily unavailable.");
-    } catch (err) {
-      setCoachAdvice("Failed to get advice. Please check your connection.");
+    } catch (err: any) {
+      console.error(err);
+      const is503 = err?.status === 503 || err?.message?.includes('503') || err?.message?.includes('Service Unavailable') || err?.message?.includes('overloaded');
+      
+      if (is503) {
+        console.log("Gemini 503 detected, retry later");
+        setIsServiceBusy(true);
+      } else {
+        setCoachAdvice("Failed to get advice. Please check your connection.");
+      }
     } finally {
       setLoading(false);
     }
@@ -168,6 +178,25 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
            </button>
         </div>
       </div>
+
+      {isServiceBusy && (
+        <div className="bg-sky-500/10 border-2 border-sky-500/30 text-sky-400 p-6 rounded-2xl shadow-xl flex flex-col md:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="p-3 bg-sky-500/20 rounded-full shrink-0">
+            <Info size={24} />
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <p className="font-black text-lg">教練目前連線不穩</p>
+            <p className="text-sm opacity-90">AI 伺服器目前很忙碌（高需求），這是暫時現象，請 5–30 分鐘後再試，或更換時間使用。</p>
+          </div>
+          <button 
+            onClick={getAdvice}
+            className="shrink-0 flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg"
+          >
+            <RefreshCw size={18} />
+            嘗試重新連線
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-4 space-y-6">
@@ -423,7 +452,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
             </div>
           </div>
 
-          {coachAdvice && (
+          {coachAdvice && !isServiceBusy && (
             <div className="bg-slate-900 border border-amber-500/30 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl -mr-16 -mt-16"></div>
               <div className="flex items-center gap-3 mb-6">
