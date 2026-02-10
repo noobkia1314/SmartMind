@@ -1,6 +1,4 @@
 
-// Application type definitions
-
 export enum RecordType {
   DIET = 'DIET',
   EXERCISE = 'EXERCISE',
