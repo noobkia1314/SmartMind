@@ -27,7 +27,8 @@ export interface FoodEntry {
 export interface ExerciseEntry {
   id: string;
   name: string;
-  duration: number;
+  value: number;
+  unit: 'minutes' | 'sets' | 'reps';
   caloriesBurned: number;
   date: string;
 }
