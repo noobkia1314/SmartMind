@@ -3,7 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { 
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
-  TrendingUp, ClipboardList, Lightbulb
+  TrendingUp, ClipboardList, Lightbulb,
+  Calendar as CalendarIcon, PieChart, Info
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
@@ -19,7 +20,7 @@ interface CoachDashboardProps {
 const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateGoal }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showTaskModal, setShowTaskModal] = useState(false);
-  const [mindMapCollapsed, setMindMapCollapsed] = useState(false);
+  const [mindMapCollapsed, setMindMapCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<RecordType>(RecordType.DIET);
   const [loading, setLoading] = useState(false);
   const [coachAdvice, setCoachAdvice] = useState<string>('');
@@ -132,92 +133,120 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     }
   };
 
+  // Mini Calendar logic
+  const daysInMonth = useMemo(() => {
+    const date = new Date(selectedDate);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    return { firstDay, days };
+  }, [selectedDate]);
+
   return (
     <div className="flex flex-col gap-6 max-w-6xl mx-auto pb-24 md:pb-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-white mb-1">{goal.title}</h1>
-          <p className="text-slate-400">Strategic Coaching Session • Active since {new Date(goal.startDate).toLocaleDateString()}</p>
+          <h1 className="text-3xl font-black text-white mb-1">{goal.title}</h1>
+          <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">啟動日期：{new Date(goal.startDate).toLocaleDateString()}</p>
         </div>
         <div className="flex items-center gap-2">
            <button 
              onClick={() => setShowTaskModal(true)}
-             className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg active:scale-95"
+             className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-xl active:scale-95"
            >
              <ClipboardList size={20} />
-             Open Daily Operations
+             每日任務
            </button>
            <button 
              onClick={getAdvice}
              disabled={loading}
-             className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-lg active:scale-95"
+             className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 text-white px-4 py-3 rounded-2xl font-black transition-all shadow-xl active:scale-95"
            >
              <Lightbulb size={20} />
-             {loading ? 'Thinking...' : 'AI Advice'}
+             {loading ? '思考中...' : '教練建議'}
            </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+          {/* Calendar View */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-200">Session Date</h3>
+              <h3 className="font-black text-slate-200 flex items-center gap-2">
+                <CalendarIcon size={18} className="text-indigo-500" />
+                日曆視圖
+              </h3>
               <div className="flex gap-1">
-                <button 
-                  onClick={() => {
-                    const d = new Date(selectedDate);
-                    d.setDate(d.getDate() - 1);
-                    setSelectedDate(d.toISOString().split('T')[0]);
-                  }}
-                  className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-400"
-                >
-                  <ChevronLeft size={20}/>
-                </button>
-                <button 
-                  onClick={() => {
-                    const d = new Date(selectedDate);
-                    d.setDate(d.getDate() + 1);
-                    setSelectedDate(d.toISOString().split('T')[0]);
-                  }}
-                  className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-400"
-                >
-                  <ChevronRight size={20}/>
-                </button>
+                <button onClick={() => {
+                  const d = new Date(selectedDate);
+                  d.setMonth(d.getMonth() - 1);
+                  setSelectedDate(d.toISOString().split('T')[0]);
+                }} className="p-1 hover:bg-slate-800 rounded text-slate-400"><ChevronLeft size={20}/></button>
+                <button onClick={() => {
+                  const d = new Date(selectedDate);
+                  d.setMonth(d.getMonth() + 1);
+                  setSelectedDate(d.toISOString().split('T')[0]);
+                }} className="p-1 hover:bg-slate-800 rounded text-slate-400"><ChevronRight size={20}/></button>
               </div>
             </div>
-            <input 
-              type="date" 
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer mb-2"
-            />
+            
+            <div className="grid grid-cols-7 gap-1 text-center mb-2">
+              {['日', '一', '二', '三', '四', '五', '六'].map(d => (
+                <span key={d} className="text-[10px] font-black text-slate-500">{d}</span>
+              ))}
+              {Array.from({ length: daysInMonth.firstDay }).map((_, i) => (
+                <div key={`empty-${i}`} />
+              ))}
+              {Array.from({ length: daysInMonth.days }).map((_, i) => {
+                const day = i + 1;
+                const dateStr = `${new Date(selectedDate).getFullYear()}-${String(new Date(selectedDate).getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isActive = dateStr === selectedDate;
+                const hasTasks = goal.tasks.some(t => t.date === dateStr);
+                return (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      setSelectedDate(dateStr);
+                      setShowTaskModal(true);
+                    }}
+                    className={`aspect-square flex items-center justify-center rounded-lg text-sm font-bold relative transition-all ${
+                      isActive ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {day}
+                    {hasTasks && !isActive && <div className="absolute bottom-1 w-1 h-1 bg-indigo-500 rounded-full" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-            <h3 className="font-bold text-slate-200 mb-4 flex items-center gap-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h3 className="font-black text-slate-200 mb-4 flex items-center gap-2">
               <TrendingUp size={18} className="text-emerald-500" />
-              Quick Stats
+              數據報告
             </h3>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-slate-800/50 rounded-xl">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Protein</p>
-                <p className="text-xl font-bold text-indigo-400">{goal.foodLogs.reduce((a, b) => a + b.protein, 0)}g</p>
+              <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">健康熱量</p>
+                <p className="text-xl font-black text-indigo-400">{goal.foodLogs.reduce((a, b) => a + b.calories, 0)} kcal</p>
               </div>
-              <div className="p-3 bg-slate-800/50 rounded-xl">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Burned</p>
-                <p className="text-xl font-bold text-rose-400">{goal.exerciseLogs.reduce((a, b) => a + b.caloriesBurned, 0)}</p>
+              <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">運動消耗</p>
+                <p className="text-xl font-black text-rose-400">{goal.exerciseLogs.reduce((a, b) => a + b.caloriesBurned, 0)} kcal</p>
               </div>
-              <div className="p-3 bg-slate-800/50 rounded-xl">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Budget</p>
-                <p className="text-xl font-bold text-emerald-400">
+              <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">財務結餘</p>
+                <p className="text-xl font-black text-emerald-400">
                   ${goal.financeLogs.reduce((a, b) => a + (b.type === 'income' ? b.amount : -b.amount), 0)}
                 </p>
               </div>
-              <div className="p-3 bg-slate-800/50 rounded-xl">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Read</p>
-                <p className="text-xl font-bold text-amber-400">
-                  {goal.readingLogs.reduce((a, b) => a + b.currentPages, 0)}p
+              <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">閱讀進度</p>
+                <p className="text-xl font-black text-amber-400">
+                  {goal.readingLogs.reduce((a, b) => a + b.currentPages, 0)} 頁
                 </p>
               </div>
             </div>
@@ -229,18 +258,18 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
             <MindMap data={goal.mindMap} isCollapsed={mindMapCollapsed} onToggle={() => setMindMapCollapsed(!mindMapCollapsed)} />
           )}
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex border-b border-slate-800 overflow-x-auto custom-scrollbar">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-sm overflow-hidden">
+            <div className="flex border-b border-slate-800 overflow-x-auto custom-scrollbar bg-slate-800/20">
               {[
-                { id: RecordType.DIET, icon: Utensils, label: 'Nutrition' },
-                { id: RecordType.EXERCISE, icon: Activity, label: 'Fitness' },
-                { id: RecordType.FINANCE, icon: DollarSign, label: 'Finance' },
-                { id: RecordType.READING, icon: BookOpen, label: 'Learning' },
+                { id: RecordType.DIET, icon: Utensils, label: '飲食記錄' },
+                { id: RecordType.EXERCISE, icon: Activity, label: '運動記錄' },
+                { id: RecordType.FINANCE, icon: DollarSign, label: '財務記錄' },
+                { id: RecordType.READING, icon: BookOpen, label: '閱讀記錄' },
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as RecordType)}
-                  className={`flex items-center gap-2 px-6 py-4 font-semibold whitespace-nowrap transition-all border-b-2 ${activeTab === tab.id ? 'text-indigo-500 border-indigo-500 bg-slate-800/30' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+                  className={`flex items-center gap-2 px-6 py-4 font-black whitespace-nowrap transition-all border-b-2 ${activeTab === tab.id ? 'text-indigo-400 border-indigo-400 bg-indigo-500/5' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
                 >
                   <tab.icon size={18} />
                   {tab.label}
@@ -251,29 +280,29 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
             <div className="p-6">
               {activeTab === RecordType.DIET && (
                 <div className="space-y-4">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input 
                       type="text" 
-                      placeholder="Enter food (e.g. 'Avocado toast')"
+                      placeholder="輸入食物名稱 (例如: '雞胸肉沙拉')"
                       value={foodInput}
                       onChange={e => setFoodInput(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-indigo-500"
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                     <button 
                       onClick={handleAddFood} 
                       disabled={loading}
-                      className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white px-6 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2"
+                      className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white px-8 rounded-2xl font-black transition-all active:scale-95 flex items-center justify-center gap-2 py-3"
                     >
                       <Plus size={20} />
-                      {loading ? '...' : 'Log'}
+                      {loading ? '計算中...' : '記錄'}
                     </button>
                   </div>
                   <div className="space-y-2">
                     {goal.foodLogs.filter(f => f.date === selectedDate).map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-3 bg-slate-800/40 rounded-xl border border-slate-800">
+                      <div key={item.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
                         <div>
-                          <p className="font-semibold text-white">{item.name}</p>
-                          <p className="text-xs text-slate-500">{item.calories} cal • {item.protein}g protein</p>
+                          <p className="font-bold text-white">{item.name}</p>
+                          <p className="text-xs text-slate-500 font-bold">{item.calories} kcal • {item.protein}g 蛋白質</p>
                         </div>
                       </div>
                     ))}
@@ -283,29 +312,28 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
               {activeTab === RecordType.EXERCISE && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     <input 
                       type="text" 
-                      placeholder="Activity (e.g. Running)"
+                      placeholder="運動項目 (例如: 跑步)"
                       value={exerciseInput.name}
                       onChange={e => setExerciseInput({...exerciseInput, name: e.target.value})}
-                      className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white"
+                      className="bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                     <div className="flex gap-2">
                       <input 
                         type="number" 
-                        placeholder="Mins"
+                        placeholder="時間 (分)"
                         value={exerciseInput.duration}
                         onChange={e => setExerciseInput({...exerciseInput, duration: parseInt(e.target.value) || 0})}
-                        className="w-24 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                       />
                       <button 
                         onClick={handleAddExercise}
                         disabled={loading}
-                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3"
                       >
-                        <Plus size={20} />
-                        {loading ? '...' : 'Log Activity'}
+                        <Plus size={20} /> 記錄
                       </button>
                     </div>
                   </div>
@@ -318,30 +346,30 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                     <select 
                       value={financeInput.type} 
                       onChange={e => setFinanceInput({...financeInput, type: e.target.value as any})}
-                      className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white font-bold"
                     >
-                      <option value="expense">Expense</option>
-                      <option value="income">Income</option>
+                      <option value="expense">支出</option>
+                      <option value="income">收入</option>
                     </select>
                     <input 
                       type="text" 
-                      placeholder="Category"
+                      placeholder="類別"
                       value={financeInput.category}
                       onChange={e => setFinanceInput({...financeInput, category: e.target.value})}
-                      className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white"
                     />
                     <input 
                       type="number" 
-                      placeholder="Amount"
+                      placeholder="金額"
                       value={financeInput.amount || ''}
                       onChange={e => setFinanceInput({...financeInput, amount: parseFloat(e.target.value) || 0})}
-                      className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white"
                     />
                     <button 
                       onClick={handleAddFinance}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3"
                     >
-                      <Plus size={20} /> Add
+                      <Plus size={20} /> 加入
                     </button>
                   </div>
                 </div>
@@ -349,39 +377,45 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
               {activeTab === RecordType.READING && (
                 <div className="space-y-4">
-                  <div className="p-4 bg-slate-800/30 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="p-5 bg-slate-950/50 rounded-3xl border border-slate-800 space-y-4">
                     <input 
                       type="text" 
-                      placeholder="Book Title"
+                      placeholder="書籍名稱"
                       value={readingInput.title}
                       onChange={e => setReadingInput({...readingInput, title: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white"
                     />
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Total Pages</label>
+                        <label className="text-[10px] text-slate-500 font-black uppercase ml-2">總頁數</label>
                         <input 
                           type="number" 
                           value={readingInput.totalPages}
                           onChange={e => setReadingInput({...readingInput, totalPages: parseInt(e.target.value) || 0})}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white"
+                          className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Read Today</label>
+                        <label className="text-[10px] text-slate-500 font-black uppercase ml-2">今日閱讀</label>
                         <input 
                           type="number" 
                           value={readingInput.readToday}
                           onChange={e => setReadingInput({...readingInput, readToday: parseInt(e.target.value) || 0})}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white"
+                          className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white"
                         />
                       </div>
                     </div>
+                    <textarea 
+                      placeholder="今日感想..."
+                      value={readingInput.summary}
+                      onChange={e => setReadingInput({...readingInput, summary: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white min-h-[100px]"
+                    />
                     <button 
                       onClick={handleAddReading}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold transition-all active:scale-95"
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl py-4 font-black transition-all active:scale-95 shadow-xl"
                     >
-                      Record Reading Progress
+                      記錄閱讀進度
                     </button>
                   </div>
                 </div>
@@ -390,16 +424,22 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
           </div>
 
           {coachAdvice && (
-            <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-xl">
+            <div className="bg-slate-900 border border-amber-500/30 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl -mr-16 -mt-16"></div>
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-amber-500/20 text-amber-500 rounded-lg">
+                <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl group-hover:scale-110 transition-transform">
                   <Lightbulb size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-white">Coach's Strategic Insights</h3>
+                <h3 className="text-2xl font-black text-white">教練戰略建議</h3>
               </div>
-              <div className="prose prose-invert max-w-none">
+              <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed">
                 {coachAdvice.split('\n').map((line, i) => (
-                  <p key={i} className="mb-2 text-slate-300">{line}</p>
+                  <p key={i} className="mb-4">
+                    {line.startsWith('#') ? <span className="text-xl font-black text-white block mb-2">{line.replace(/#/g, '').trim()}</span> : 
+                     line.startsWith('-') || line.startsWith('*') ? <span className="flex items-start gap-2 mb-2 ml-4"><span className="text-indigo-500 font-bold">•</span><span>{line.substring(1).trim()}</span></span> :
+                     line.includes('**') ? <span dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-400 font-black">$1</strong>') }} /> :
+                     line}
+                  </p>
                 ))}
               </div>
             </div>
