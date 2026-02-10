@@ -4,7 +4,7 @@ import {
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info, RefreshCw
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
@@ -88,6 +88,11 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     }
   };
 
+  const handleRemoveExercise = (id: string) => {
+    const updatedLogs = goal.exerciseLogs.filter(log => log.id !== id);
+    onUpdateGoal({ ...goal, exerciseLogs: updatedLogs });
+  };
+
   const handleAddFinance = () => {
     const newEntry: FinanceEntry = {
       id: crypto.randomUUID(),
@@ -142,6 +147,14 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
       setLoading(false);
     }
   };
+
+  const dailyExerciseLogs = useMemo(() => 
+    goal.exerciseLogs.filter(log => log.date === selectedDate),
+  [goal.exerciseLogs, selectedDate]);
+
+  const dailyTotalCaloriesBurned = useMemo(() => 
+    dailyExerciseLogs.reduce((acc, log) => acc + log.caloriesBurned, 0),
+  [dailyExerciseLogs]);
 
   // Mini Calendar logic
   const daysInMonth = useMemo(() => {
@@ -238,7 +251,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                     key={day}
                     onClick={() => {
                       setSelectedDate(dateStr);
-                      setShowTaskModal(true);
                     }}
                     className={`aspect-square flex items-center justify-center rounded-lg text-sm font-bold relative transition-all ${
                       isActive ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400'
@@ -341,6 +353,12 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
               {activeTab === RecordType.EXERCISE && (
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-bold text-slate-400 uppercase text-xs tracking-widest">新增運動項目</h4>
+                    <div className="text-xs font-black px-3 py-1 bg-rose-500/10 text-rose-400 rounded-full border border-rose-500/20">
+                      今日總運動消耗: {dailyTotalCaloriesBurned} kcal
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     <input 
                       type="text" 
@@ -359,12 +377,42 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                       />
                       <button 
                         onClick={handleAddExercise}
-                        disabled={loading}
-                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3"
+                        disabled={loading || !exerciseInput.name}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3 transition-all active:scale-95"
                       >
-                        <Plus size={20} /> 記錄
+                        {loading ? <RefreshCw className="animate-spin" size={18}/> : <Plus size={18} />}
+                        記錄
                       </button>
                     </div>
+                  </div>
+
+                  <div className="mt-6 space-y-2">
+                    <h4 className="font-bold text-slate-400 uppercase text-xs tracking-widest mb-3">今日記錄</h4>
+                    {dailyExerciseLogs.length === 0 ? (
+                      <p className="text-slate-600 italic text-sm text-center py-6 bg-slate-950/30 rounded-2xl border border-dashed border-slate-800">尚未記錄任何運動</p>
+                    ) : (
+                      dailyExerciseLogs.map(log => (
+                        <div key={log.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-xl flex items-center justify-center">
+                              <Activity size={20} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-white">{log.name}</p>
+                              <p className="text-xs text-slate-500 font-bold">
+                                {log.duration} 分鐘 | 估計消耗 <span className="text-rose-400">{log.caloriesBurned} kcal</span>
+                              </p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => handleRemoveExercise(log.id)}
+                            className="p-2 text-slate-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
