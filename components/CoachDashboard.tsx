@@ -4,7 +4,7 @@ import {
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
@@ -99,13 +99,19 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   };
 
   const handleAddFinance = () => {
+    if (!financeInput.category || financeInput.amount <= 0) return;
     const newEntry: FinanceEntry = {
       id: crypto.randomUUID(),
       ...financeInput,
       date: selectedDate
     };
-    onUpdateGoal({ ...goal, financeLogs: [...goal.financeLogs, newEntry] });
+    onUpdateGoal({ ...goal, financeLogs: [newEntry, ...goal.financeLogs] });
     setFinanceInput({ type: 'expense', category: '', amount: 0, description: '' });
+  };
+
+  const handleRemoveFinance = (id: string) => {
+    const updatedLogs = goal.financeLogs.filter(log => log.id !== id);
+    onUpdateGoal({ ...goal, financeLogs: updatedLogs });
   };
 
   const handleAddReading = () => {
@@ -160,6 +166,23 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const dailyTotalCaloriesBurned = useMemo(() => 
     dailyExerciseLogs.reduce((acc, log) => acc + log.caloriesBurned, 0),
   [dailyExerciseLogs]);
+
+  const financeStats = useMemo(() => {
+    const todayLogs = goal.financeLogs.filter(f => f.date === selectedDate);
+    const totals = goal.financeLogs.reduce((acc, curr) => {
+      if (curr.type === 'income') acc.income += curr.amount;
+      else acc.expense += curr.amount;
+      return acc;
+    }, { income: 0, expense: 0 });
+
+    const todayTotals = todayLogs.reduce((acc, curr) => {
+      if (curr.type === 'income') acc.income += curr.amount;
+      else acc.expense += curr.amount;
+      return acc;
+    }, { income: 0, expense: 0 });
+
+    return { totals, todayTotals };
+  }, [goal.financeLogs, selectedDate]);
 
   const getUnitLabel = (unit: string) => {
     switch (unit) {
@@ -457,36 +480,110 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
               )}
 
               {activeTab === RecordType.FINANCE && (
-                <div className="space-y-4">
+                <div className="space-y-6">
+                  {/* Summary Header */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase text-emerald-500 tracking-widest mb-1">
+                        <ArrowUpCircle size={14}/> 總收入
+                      </div>
+                      <p className="text-xl font-black text-white">${financeStats.totals.income}</p>
+                    </div>
+                    <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase text-rose-500 tracking-widest mb-1">
+                        <ArrowDownCircle size={14}/> 總支出
+                      </div>
+                      <p className="text-xl font-black text-white">${financeStats.totals.expense}</p>
+                    </div>
+                    <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-500 tracking-widest mb-1">
+                        <Wallet size={14}/> 淨額
+                      </div>
+                      <p className={`text-xl font-black ${financeStats.totals.income - financeStats.totals.expense >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        ${financeStats.totals.income - financeStats.totals.expense}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Input Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                     <select 
                       value={financeInput.type} 
                       onChange={e => setFinanceInput({...financeInput, type: e.target.value as any})}
-                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white font-bold"
+                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white font-bold focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="expense">支出</option>
                       <option value="income">收入</option>
                     </select>
                     <input 
                       type="text" 
-                      placeholder="類別"
+                      placeholder="類別 (如：午餐)"
                       value={financeInput.category}
                       onChange={e => setFinanceInput({...financeInput, category: e.target.value})}
-                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white"
+                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                     <input 
                       type="number" 
                       placeholder="金額"
                       value={financeInput.amount || ''}
                       onChange={e => setFinanceInput({...financeInput, amount: parseFloat(e.target.value) || 0})}
-                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white"
+                      className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                     <button 
                       onClick={handleAddFinance}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3"
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black flex items-center justify-center gap-2 py-3 transition-all active:scale-95"
                     >
-                      <Plus size={20} /> 加入
+                      <Plus size={20} /> 加入記錄
                     </button>
+                  </div>
+
+                  {/* Detailed Table */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-inner">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm border-collapse">
+                        <thead className="bg-slate-900/80 text-slate-500 uppercase text-[10px] font-black tracking-widest border-b border-slate-800">
+                          <tr>
+                            <th className="px-4 py-3">日期</th>
+                            <th className="px-4 py-3">類型</th>
+                            <th className="px-4 py-3">項目類別</th>
+                            <th className="px-4 py-3">金額</th>
+                            <th className="px-4 py-3 text-right">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-900">
+                          {goal.financeLogs.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-12 text-center text-slate-600 italic">尚未有收支記錄</td>
+                            </tr>
+                          ) : (
+                            goal.financeLogs.map((log) => (
+                              <tr key={log.id} className="hover:bg-slate-900/30 transition-colors group">
+                                <td className="px-4 py-3 text-slate-400 font-medium">
+                                  {new Date(log.date).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${log.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                    {log.type === 'income' ? '收入' : '支出'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-white font-bold">{log.category}</td>
+                                <td className={`px-4 py-3 font-black text-base ${log.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {log.type === 'income' ? '+' : '-'}${log.amount}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <button 
+                                    onClick={() => handleRemoveFinance(log.id)}
+                                    className="p-1.5 text-slate-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
@@ -499,7 +596,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                       placeholder="書籍名稱"
                       value={readingInput.title}
                       onChange={e => setReadingInput({...readingInput, title: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500"
                     />
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
