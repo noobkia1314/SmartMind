@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import CoachDashboard from './components/CoachDashboard';
 import { AppState, UserGoal } from './types';
 import { GeminiService } from './services/geminiService';
-import { Target, BrainCircuit, Rocket, AlertCircle, CheckCircle } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, AlertCircle, CheckCircle, RefreshCw, Info } from 'lucide-react';
 
 const INITIAL_STATE: AppState = {
   user: { name: 'Guest User', isLoggedIn: false, provider: null },
@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const [goalInput, setGoalInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isServiceBusy, setIsServiceBusy] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('smartmind_state', JSON.stringify(state));
@@ -70,6 +71,7 @@ const App: React.FC = () => {
     
     setIsLoading(true);
     setError(null);
+    setIsServiceBusy(false);
     try {
       const data = await gemini.generateGoalStructure(goalInput);
       if (!data) throw new Error("Generation failed");
@@ -102,7 +104,14 @@ const App: React.FC = () => {
       setGoalInput('');
     } catch (err: any) {
       console.error(err);
-      setError("無法啟動 AI 教練。請確保您的 API Key 有效且具備存取權限。");
+      const is503 = err?.status === 503 || err?.message?.includes('503') || err?.message?.includes('Service Unavailable') || err?.message?.includes('overloaded');
+      
+      if (is503) {
+        console.log("Gemini 503 detected, retry later");
+        setIsServiceBusy(true);
+      } else {
+        setError("無法啟動 AI 教練。請確保您的 API Key 有效且具備存取權限。");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -180,7 +189,26 @@ const App: React.FC = () => {
                   className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-6 text-lg text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all min-h-[160px] shadow-inner"
                 />
 
-                {error && (
+                {isServiceBusy && (
+                  <div className="bg-sky-500/10 border-2 border-sky-500/30 text-sky-400 p-6 rounded-2xl shadow-xl flex flex-col md:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="p-3 bg-sky-500/20 rounded-full shrink-0">
+                      <Info size={24} />
+                    </div>
+                    <div className="flex-1 text-center md:text-left">
+                      <p className="font-black text-lg">AI 伺服器目前很忙碌</p>
+                      <p className="text-sm opacity-90">目前正處於高需求時期，這是暫時現象。請 5–30 分鐘後再試，或更換時間使用。</p>
+                    </div>
+                    <button 
+                      onClick={handleStartGoal}
+                      className="shrink-0 flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg"
+                    >
+                      <RefreshCw size={18} />
+                      立即重試
+                    </button>
+                  </div>
+                )}
+
+                {error && !isServiceBusy && (
                   <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-xl text-sm font-medium">
                     {error}
                   </div>
