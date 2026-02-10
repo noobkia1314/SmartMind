@@ -1,0 +1,7 @@
+{
+  "name": "SmartMind AI Coach",
+  "description": "A high-performance AI personal coach for goal tracking, healthy living, and financial management with integrated mind-mapping.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
