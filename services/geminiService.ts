@@ -1,12 +1,25 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-// API Key is obtained exclusively from the environment variable as per hard requirements.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+const getApiKey = () => {
+  // Check localStorage first as it's the primary way users configure it in this app
+  const storedKey = localStorage.getItem('GEMINI_API_KEY');
+  // Fallback to environment variable if injected
+  const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  return storedKey || envKey || '';
+};
 
 export class GeminiService {
+  private getClient() {
+    const key = getApiKey();
+    if (!key) {
+      throw new Error("Gemini API Key is missing.");
+    }
+    return new GoogleGenAI({ apiKey: key });
+  }
+
   async generateGoalStructure(goal: string) {
+    const ai = this.getClient();
     const prompt = `Generate a comprehensive personal development plan for the goal: "${goal}".
     Return a JSON structure including:
     1. A mind map (tree structure with id and label).
@@ -67,6 +80,7 @@ export class GeminiService {
   }
 
   async calculateNutrition(food: string) {
+    const ai = this.getClient();
     const prompt = `Calculate estimated calories and protein for: "${food}".`;
     try {
       const response = await ai.models.generateContent({
@@ -92,6 +106,7 @@ export class GeminiService {
   }
 
   async calculateExercise(exercise: string, duration: number) {
+    const ai = this.getClient();
     const prompt = `Calculate estimated calories burned for: "${exercise}" done for ${duration} minutes.`;
     try {
       const response = await ai.models.generateContent({
@@ -116,6 +131,7 @@ export class GeminiService {
   }
 
   async getCoachAdvice(dataSummary: string) {
+    const ai = this.getClient();
     const prompt = `As a professional high-performance AI coach, analyze this data summary:
     ${dataSummary}
     
