@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import CoachDashboard from './components/CoachDashboard';
+import GoalList from './components/GoalList';
 import { AppState, UserGoal } from './types';
 import { GeminiService } from './services/geminiService';
-import { Target, BrainCircuit, Rocket, AlertCircle, CheckCircle, RefreshCw, Info } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, AlertCircle, CheckCircle, RefreshCw, Info, PlusCircle } from 'lucide-react';
 
 const INITIAL_STATE: AppState = {
   user: { name: 'Guest User', isLoggedIn: false, provider: null },
@@ -117,6 +118,11 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSelectGoal = (goalId: string) => {
+    setState(prev => ({...prev, activeGoalId: goalId}));
+    setActiveView('coach');
+  };
+
   const updateActiveGoal = (updatedGoal: UserGoal) => {
     setState(prev => ({
       ...prev,
@@ -139,7 +145,7 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen overflow-x-hidden pb-32">
-        {/* Status indicator headers as requested */}
+        {/* Status indicator headers */}
         <div className="max-w-4xl mx-auto mb-6">
           {!apiKey ? (
             <div className="flex items-center gap-3 p-4 bg-rose-500/20 border border-rose-500/50 rounded-2xl text-rose-400 animate-pulse">
@@ -192,7 +198,7 @@ const App: React.FC = () => {
                 {isServiceBusy && (
                   <div className="bg-sky-500/10 border-2 border-sky-500/30 text-sky-400 p-6 rounded-2xl shadow-xl flex flex-col md:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="p-3 bg-sky-500/20 rounded-full shrink-0">
-                      <Info size={24} />
+                      <div className="animate-spin text-sky-500"><RefreshCw size={24} /></div>
                     </div>
                     <div className="flex-1 text-center md:text-left">
                       <p className="font-black text-lg">AI 伺服器目前很忙碌</p>
@@ -238,21 +244,28 @@ const App: React.FC = () => {
 
         {activeView === 'goals' && (
           <div className="max-w-4xl mx-auto py-8">
-            <h2 className="text-3xl font-black text-white mb-8">我的目標</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between mb-8">
+               <h2 className="text-3xl font-black text-white">我的任務清單</h2>
+               <button 
+                onClick={() => setActiveView('home')}
+                className="flex items-center gap-2 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all border border-indigo-500/30"
+               >
+                 <PlusCircle size={18} />
+                 新目標
+               </button>
+            </div>
+            
+            <div className="overflow-y-auto custom-scrollbar pr-2 max-h-[calc(100vh-280px)]">
               {state.goals.length === 0 ? (
-                <p className="text-slate-500">尚無目標。</p>
+                <div className="bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-3xl p-12 text-center">
+                  <Target className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+                  <p className="text-slate-500 font-medium">尚無目標，快去主頁啟動你的第一個 AI 任務！</p>
+                </div>
               ) : (
-                state.goals.map(goal => (
-                  <div 
-                    key={goal.id} 
-                    onClick={() => { setState(prev => ({...prev, activeGoalId: goal.id})); setActiveView('coach'); }}
-                    className="group bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-2xl p-6 cursor-pointer transition-all"
-                  >
-                    <h3 className="text-xl font-bold text-white mb-2">{goal.title}</h3>
-                    <p className="text-xs text-slate-500 uppercase tracking-widest">{new Date(goal.startDate).toLocaleDateString()}</p>
-                  </div>
-                ))
+                <GoalList 
+                  goals={state.goals} 
+                  onSelectGoal={handleSelectGoal}
+                />
               )}
             </div>
           </div>
