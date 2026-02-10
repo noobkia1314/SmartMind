@@ -13,6 +13,13 @@ const INITIAL_STATE: AppState = {
 };
 
 const App: React.FC = () => {
+  useEffect(() => {
+    console.log("App loaded. Checking environment...");
+    if (!process.env.API_KEY) {
+      console.warn("API_KEY not found in environment. AI features may be unavailable.");
+    }
+  }, []);
+
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem('smartmind_state');
     return saved ? JSON.parse(saved) : INITIAL_STATE;
@@ -27,14 +34,13 @@ const App: React.FC = () => {
     localStorage.setItem('smartmind_state', JSON.stringify(state));
   }, [state]);
 
-  // GeminiService is now initialized once without the need for manual API key input.
   const gemini = useMemo(() => new GeminiService(), []);
 
   const handleLogin = (provider: 'google' | 'anonymous') => {
     setState(prev => ({
       ...prev,
       user: {
-        name: provider === 'google' ? 'Simulated Google User' : 'Guest Traveler',
+        name: provider === 'google' ? 'Simulated User' : 'Guest Traveler',
         isLoggedIn: true,
         provider
       }
@@ -81,7 +87,8 @@ const App: React.FC = () => {
       setActiveView('coach');
       setGoalInput('');
     } catch (err: any) {
-      setError("Unable to initiate AI coach. Please verify your connection and try again later.");
+      console.error(err);
+      setError("Unable to initiate AI coach. Please ensure the environment API key is configured and try again.");
     } finally {
       setIsLoading(false);
     }
