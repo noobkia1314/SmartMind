@@ -1,4 +1,6 @@
 
+// Application type definitions
+
 export enum RecordType {
   DIET = 'DIET',
   EXERCISE = 'EXERCISE',
@@ -82,7 +84,6 @@ export interface UserProfile {
 }
 
 export interface AppState {
-  apiKey: string;
   user: UserProfile;
   goals: UserGoal[];
   activeGoalId: string | null;
