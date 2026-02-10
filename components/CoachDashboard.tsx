@@ -2,8 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Utensils, Activity, BookOpen, DollarSign, 
-  ChevronLeft, ChevronRight, Plus, Trash2, 
-  TrendingUp, TrendingDown, ClipboardList, Lightbulb
+  ChevronLeft, ChevronRight, Plus, 
+  TrendingUp, ClipboardList, Lightbulb
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
@@ -58,6 +58,8 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
       };
       onUpdateGoal({ ...goal, foodLogs: [...goal.foodLogs, newEntry] });
       setFoodInput('');
+    } catch (err) {
+        console.error("Log food failed", err);
     } finally {
       setLoading(false);
     }
@@ -77,6 +79,8 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
       };
       onUpdateGoal({ ...goal, exerciseLogs: [...goal.exerciseLogs, newEntry] });
       setExerciseInput({ name: '', duration: 30 });
+    } catch (err) {
+        console.error("Log exercise failed", err);
     } finally {
       setLoading(false);
     }
@@ -118,9 +122,14 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     if (!gemini) return;
     setLoading(true);
     const summary = `Goal: ${goal.title}. Total Tasks: ${goal.tasks.length}, Completed: ${goal.tasks.filter(t => t.completed).length}. Total Calories: ${goal.foodLogs.reduce((acc, f) => acc + f.calories, 0)}. Fitness duration: ${goal.exerciseLogs.reduce((acc, e) => acc + e.duration, 0)}. Finance balance: ${goal.financeLogs.reduce((acc, f) => acc + (f.type === 'income' ? f.amount : -f.amount), 0)}.`;
-    const advice = await gemini.getCoachAdvice(summary);
-    setCoachAdvice(advice);
-    setLoading(false);
+    try {
+      const advice = await gemini.getCoachAdvice(summary);
+      setCoachAdvice(advice || "Coach is momentarily unavailable.");
+    } catch (err) {
+      setCoachAdvice("Failed to get advice. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -155,8 +164,26 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-slate-200">Session Date</h3>
               <div className="flex gap-1">
-                <button className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-400"><ChevronLeft size={20}/></button>
-                <button className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-400"><ChevronRight size={20}/></button>
+                <button 
+                  onClick={() => {
+                    const d = new Date(selectedDate);
+                    d.setDate(d.getDate() - 1);
+                    setSelectedDate(d.toISOString().split('T')[0]);
+                  }}
+                  className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-400"
+                >
+                  <ChevronLeft size={20}/>
+                </button>
+                <button 
+                  onClick={() => {
+                    const d = new Date(selectedDate);
+                    d.setDate(d.getDate() + 1);
+                    setSelectedDate(d.toISOString().split('T')[0]);
+                  }}
+                  className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-400"
+                >
+                  <ChevronRight size={20}/>
+                </button>
               </div>
             </div>
             <input 
