@@ -1,13 +1,11 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+// Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+// API Key is obtained exclusively from the environment variable as per hard requirements.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
 export class GeminiService {
-  private ai: GoogleGenAI;
-
-  constructor(apiKey: string) {
-    this.ai = new GoogleGenAI({ apiKey });
-  }
-
   async generateGoalStructure(goal: string) {
     const prompt = `Generate a comprehensive personal development plan for the goal: "${goal}".
     Return a JSON structure including:
@@ -21,7 +19,8 @@ export class GeminiService {
     }`;
 
     try {
-      const response = await this.ai.models.generateContent({
+      // Use ai.models.generateContent to query GenAI with model and prompt.
+      const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
@@ -34,8 +33,16 @@ export class GeminiService {
                 properties: {
                   id: { type: Type.STRING },
                   label: { type: Type.STRING },
-                  children: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, label: { type: Type.STRING } } } }
-                }
+                  children: { 
+                    type: Type.ARRAY, 
+                    items: { 
+                      type: Type.OBJECT, 
+                      properties: { id: { type: Type.STRING }, label: { type: Type.STRING } },
+                      required: ['id', 'label']
+                    } 
+                  }
+                },
+                required: ['id', 'label', 'children']
               },
               tasks: {
                 type: Type.ARRAY,
@@ -44,13 +51,16 @@ export class GeminiService {
                   properties: {
                     title: { type: Type.STRING },
                     category: { type: Type.STRING }
-                  }
+                  },
+                  required: ['title', 'category']
                 }
               }
-            }
+            },
+            required: ['mindMap', 'tasks']
           }
         }
       });
+      // Access response.text property directly to extract generated JSON string.
       return JSON.parse(response.text || '{}');
     } catch (error) {
       console.error("Gemini Error:", error);
@@ -59,25 +69,52 @@ export class GeminiService {
   }
 
   async calculateNutrition(food: string) {
-    const prompt = `Calculate estimated calories and protein for: "${food}". 
-    Return JSON: { "calories": number, "protein": number }`;
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' }
-    });
-    return JSON.parse(response.text || '{"calories": 0, "protein": 0}');
+    const prompt = `Calculate estimated calories and protein for: "${food}".`;
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { 
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              calories: { type: Type.NUMBER },
+              protein: { type: Type.NUMBER }
+            },
+            required: ['calories', 'protein']
+          }
+        }
+      });
+      return JSON.parse(response.text || '{"calories": 0, "protein": 0}');
+    } catch (error) {
+      console.error("Nutrition calculation failed:", error);
+      return { calories: 0, protein: 0 };
+    }
   }
 
   async calculateExercise(exercise: string, duration: number) {
-    const prompt = `Calculate estimated calories burned for: "${exercise}" done for ${duration} minutes. 
-    Return JSON: { "caloriesBurned": number }`;
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' }
-    });
-    return JSON.parse(response.text || '{"caloriesBurned": 0}');
+    const prompt = `Calculate estimated calories burned for: "${exercise}" done for ${duration} minutes.`;
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { 
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              caloriesBurned: { type: Type.NUMBER }
+            },
+            required: ['caloriesBurned']
+          }
+        }
+      });
+      return JSON.parse(response.text || '{"caloriesBurned": 0}');
+    } catch (error) {
+      console.error("Exercise calculation failed:", error);
+      return { caloriesBurned: 0 };
+    }
   }
 
   async getCoachAdvice(dataSummary: string) {
@@ -90,7 +127,7 @@ export class GeminiService {
     - **Bold** for highlights
     Keep it encouraging but firm.`;
 
-    const response = await this.ai.models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
     });
