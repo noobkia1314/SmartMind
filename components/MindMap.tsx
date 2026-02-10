@@ -1,19 +1,36 @@
 
 import React, { useState } from 'react';
 import { MindMapNode } from '../types';
-import { ChevronDown, ChevronUp, Clock, Target, CheckCircle2, Info, LayoutList } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Target, CheckCircle2, Info, LayoutList, RefreshCw } from 'lucide-react';
 
 interface MindMapProps {
   data: MindMapNode;
   isCollapsed: boolean;
   onToggle: () => void;
+  onViewTasks: () => void;
+  hasTasks: boolean;
 }
 
-const MindMap: React.FC<MindMapProps> = ({ data, isCollapsed, onToggle }) => {
+const MindMap: React.FC<MindMapProps> = ({ data, isCollapsed, onToggle, onViewTasks, hasTasks }) => {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const handleNodeClick = (id: string) => {
     setExpandedNodeId(expandedNodeId === id ? null : id);
+  };
+
+  const handleViewTasks = (id: string) => {
+    if (!hasTasks) {
+      alert("請先啟動 AI 教練生成每日任務，或檢查您的目標清單。");
+      return;
+    }
+
+    setLoadingId(id);
+    // Simulate a short loading delay for better UX
+    setTimeout(() => {
+      setLoadingId(null);
+      onViewTasks();
+    }, 600);
   };
 
   return (
@@ -47,8 +64,9 @@ const MindMap: React.FC<MindMapProps> = ({ data, isCollapsed, onToggle }) => {
             {data.children && data.children.length > 0 ? (
               data.children.map((child, index) => {
                 const isExpanded = expandedNodeId === child.id;
+                const isLoading = loadingId === child.id;
                 // Generate a pseudo-random progress for visual interest
-                const pseudoProgress = Math.floor(Math.abs(Math.sin(index)) * 100);
+                const pseudoProgress = Math.floor(Math.abs(Math.sin(index + 5)) * 100);
 
                 return (
                   <div 
@@ -114,10 +132,14 @@ const MindMap: React.FC<MindMapProps> = ({ data, isCollapsed, onToggle }) => {
                             </div>
                           </div>
 
-                          <button className="flex items-center gap-2 text-[10px] text-indigo-400 font-black uppercase tracking-widest hover:text-indigo-300 transition-colors group">
-                            <LayoutList size={14} />
-                            查看相關每日任務
-                            <span className="group-hover:translate-x-1 transition-transform">→</span>
+                          <button 
+                            onClick={() => handleViewTasks(child.id)}
+                            disabled={isLoading}
+                            className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all group ${isLoading ? 'text-slate-500 cursor-not-allowed' : 'text-indigo-400 hover:text-indigo-300'}`}
+                          >
+                            {isLoading ? <RefreshCw size={14} className="animate-spin" /> : <LayoutList size={14} />}
+                            {isLoading ? '載入每日任務...' : '查看相關每日任務'}
+                            {!isLoading && <span className="group-hover:translate-x-1 transition-transform">→</span>}
                           </button>
                         </div>
                       </div>
