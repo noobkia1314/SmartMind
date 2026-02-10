@@ -74,6 +74,7 @@ export interface UserGoal {
   exerciseLogs: ExerciseEntry[];
   readingLogs: ReadingEntry[];
   financeLogs: FinanceEntry[];
+  isDemo?: boolean;
 }
 
 export interface UserProfile {
