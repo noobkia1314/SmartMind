@@ -2,10 +2,10 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Utensils, Activity, BookOpen, DollarSign, 
-  Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2, 
+  ChevronLeft, ChevronRight, Plus, Trash2, 
   TrendingUp, TrendingDown, ClipboardList, Lightbulb
 } from 'lucide-react';
-import { UserGoal, RecordType, Task, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
+import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
 import DailyTaskModal from './DailyTaskModal';
 import { GeminiService } from '../services/geminiService';
@@ -125,7 +125,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
   return (
     <div className="flex flex-col gap-6 max-w-6xl mx-auto pb-24 md:pb-8">
-      {/* Top Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-white mb-1">{goal.title}</h1>
@@ -150,10 +149,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
         </div>
       </div>
 
-      {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Column: Calendar & Controls */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -169,23 +165,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
               onChange={(e) => setSelectedDate(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer mb-2"
             />
-            <div className="grid grid-cols-7 gap-1 text-center mt-4">
-              {['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-[10px] text-slate-500 font-bold">{d}</span>)}
-              {Array.from({length: 31}).map((_, i) => {
-                const day = i + 1;
-                const dateStr = `2024-03-${day.toString().padStart(2, '0')}`; // Mock calendar
-                const hasTask = goal.tasks.some(t => t.date === dateStr);
-                return (
-                  <button 
-                    key={i} 
-                    className={`h-10 w-full flex flex-col items-center justify-center rounded-lg text-sm relative transition-all ${selectedDate.includes(`-${day.toString().padStart(2, '0')}`) ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800'}`}
-                  >
-                    {day}
-                    {hasTask && <div className="absolute bottom-1 w-1 h-1 bg-amber-400 rounded-full" />}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
@@ -218,7 +197,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
           </div>
         </div>
 
-        {/* Right Column: Interaction Tabs & MindMap */}
         <div className="lg:col-span-8 space-y-6">
           {goal.mindMap && (
             <MindMap data={goal.mindMap} isCollapsed={mindMapCollapsed} onToggle={() => setMindMapCollapsed(!mindMapCollapsed)} />
@@ -270,7 +248,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                           <p className="font-semibold text-white">{item.name}</p>
                           <p className="text-xs text-slate-500">{item.calories} cal • {item.protein}g protein</p>
                         </div>
-                        <button className="text-slate-500 hover:text-rose-500"><Trash2 size={16}/></button>
                       </div>
                     ))}
                   </div>
@@ -304,20 +281,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                         {loading ? '...' : 'Log Activity'}
                       </button>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    {goal.exerciseLogs.filter(e => e.date === selectedDate).map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-3 bg-slate-800/40 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <Activity className="text-rose-500" size={18} />
-                          <div>
-                            <p className="font-semibold text-white">{item.name}</p>
-                            <p className="text-xs text-slate-500">{item.duration} mins • {item.caloriesBurned} cal burned</p>
-                          </div>
-                        </div>
-                        <button className="text-slate-500 hover:text-rose-500"><Trash2 size={16}/></button>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
@@ -354,24 +317,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                       <Plus size={20} /> Add
                     </button>
                   </div>
-                  <div className="space-y-2">
-                    {goal.financeLogs.filter(f => f.date === selectedDate).map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-3 bg-slate-800/40 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${item.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                            {item.type === 'income' ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-white">{item.category}</p>
-                            <p className="text-xs text-slate-500">{item.description || 'No description'}</p>
-                          </div>
-                        </div>
-                        <p className={`font-bold ${item.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {item.type === 'income' ? '+' : '-'}${item.amount}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -396,7 +341,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Pages Read Today</label>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Read Today</label>
                         <input 
                           type="number" 
                           value={readingInput.readToday}
@@ -405,12 +350,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                         />
                       </div>
                     </div>
-                    <textarea 
-                      placeholder="Today's reflections..."
-                      value={readingInput.summary}
-                      onChange={e => setReadingInput({...readingInput, summary: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm min-h-[80px]"
-                    />
                     <button 
                       onClick={handleAddReading}
                       className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold transition-all active:scale-95"
@@ -418,53 +357,23 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                       Record Reading Progress
                     </button>
                   </div>
-                  
-                  <div className="space-y-3 mt-4">
-                    {goal.readingLogs.map(book => (
-                      <div key={book.id} className="p-4 bg-slate-800/50 rounded-2xl border border-slate-800">
-                         <div className="flex justify-between items-start mb-3">
-                            <h4 className="font-bold text-lg text-white">{book.title}</h4>
-                            <span className="text-xs font-bold text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded">
-                              {Math.round((book.currentPages / book.totalPages) * 100)}% Complete
-                            </span>
-                         </div>
-                         <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden mb-4">
-                            <div 
-                              className="bg-indigo-500 h-full transition-all duration-500" 
-                              style={{ width: `${(book.currentPages / book.totalPages) * 100}%` }}
-                            />
-                         </div>
-                         <div className="space-y-2">
-                           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">History</p>
-                           {book.history.map((h, i) => (
-                             <div key={i} className="text-sm flex justify-between text-slate-400 border-l border-slate-700 pl-3 py-1">
-                               <span>{h.date}: {h.pagesRead} pages</span>
-                               <span className="italic text-xs opacity-60">"{h.summary.substring(0, 30)}..."</span>
-                             </div>
-                           ))}
-                         </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {coachAdvice && (
-            <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-xl animate-in slide-in-from-bottom-4 duration-300">
+            <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-xl">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-amber-500/20 text-amber-500 rounded-lg">
                   <Lightbulb size={24} />
                 </div>
                 <h3 className="text-xl font-bold text-white">Coach's Strategic Insights</h3>
               </div>
-              <div className="prose prose-invert max-w-none prose-p:text-slate-300 prose-li:text-slate-300 prose-strong:text-amber-400">
-                {coachAdvice.split('\n').map((line, i) => {
-                  if (line.startsWith('#')) return <h4 key={i} className="text-lg font-bold text-indigo-400 mt-4 mb-2">{line.replace(/#/g, '').trim()}</h4>;
-                  if (line.startsWith('-')) return <li key={i} className="ml-4 text-slate-300 mb-1">{line.substring(1).trim()}</li>;
-                  return <p key={i} className="mb-2 leading-relaxed">{line}</p>;
-                })}
+              <div className="prose prose-invert max-w-none">
+                {coachAdvice.split('\n').map((line, i) => (
+                  <p key={i} className="mb-2 text-slate-300">{line}</p>
+                ))}
               </div>
             </div>
           )}
