@@ -105,9 +105,9 @@ export class GeminiService {
     }
   }
 
-  async calculateExercise(exercise: string, duration: number) {
+  async calculateExercise(exercise: string, value: number, unit: string) {
     const ai = this.getClient();
-    const prompt = `Calculate estimated calories burned for: "${exercise}" done for ${duration} minutes.`;
+    const prompt = `Calculate estimated calories burned for: "${exercise}" with a volume of ${value} ${unit}. Use MET values for time-based exercise and standard metabolic equivalents for strength training/reps. Return only the caloriesBurned as an integer.`;
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
