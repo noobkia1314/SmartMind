@@ -3,12 +3,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import CoachDashboard from './components/CoachDashboard';
 import ApiKeyOverlay from './components/ApiKeyOverlay';
-import { AppState, UserGoal, UserProfile } from './types';
+import { AppState, UserGoal } from './types';
 import { GeminiService } from './services/geminiService';
 import { Target, PlusCircle, LayoutDashboard, BrainCircuit, Rocket } from 'lucide-react';
 
 const INITIAL_STATE: AppState = {
-  apiKey: '',
   user: { name: 'Guest User', isLoggedIn: false, provider: null },
   goals: [],
   activeGoalId: null,
@@ -29,7 +28,8 @@ const App: React.FC = () => {
     localStorage.setItem('smartmind_state', JSON.stringify(state));
   }, [state]);
 
-  const gemini = useMemo(() => state.apiKey ? new GeminiService(state.apiKey) : null, [state.apiKey]);
+  // GeminiService now retrieves the API key directly from process.env.API_KEY.
+  const gemini = useMemo(() => new GeminiService(), []);
 
   const handleLogin = (provider: 'google' | 'anonymous') => {
     setState(prev => ({
@@ -46,21 +46,13 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, user: INITIAL_STATE.user }));
   };
 
-  const setApiKey = (apiKey: string) => {
-    setState(prev => ({ ...prev, apiKey }));
-  };
-
   const handleStartGoal = async () => {
     if (!goalInput.trim()) return;
-    if (!state.apiKey) {
-      setError("請先在畫面右下角的設定框中輸入 Gemini API Key");
-      return;
-    }
     
     setIsLoading(true);
     setError(null);
     try {
-      const data = await gemini?.generateGoalStructure(goalInput);
+      const data = await gemini.generateGoalStructure(goalInput);
       if (!data) throw new Error("生成失敗");
 
       const newGoal: UserGoal = {
@@ -90,7 +82,7 @@ const App: React.FC = () => {
       setActiveView('coach');
       setGoalInput('');
     } catch (err: any) {
-      setError("無法啟動 AI 教練。請檢查 API Key 是否正確且具備 Gemini 存取權限。");
+      setError("無法啟動 AI 教練。請檢查網路連線或稍後再試。");
     } finally {
       setIsLoading(false);
     }
@@ -108,8 +100,6 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-200">
       <Sidebar 
-        apiKey={state.apiKey}
-        setApiKey={setApiKey}
         user={state.user}
         onLogin={handleLogin}
         onLogout={handleLogout}
@@ -117,8 +107,8 @@ const App: React.FC = () => {
         setActiveView={setActiveView}
       />
 
-      {/* Persistent API Key Control */}
-      <ApiKeyOverlay apiKey={state.apiKey} onSave={setApiKey} />
+      {/* ApiKeyOverlay is kept for structure but disabled internally to adhere to guidelines. */}
+      <ApiKeyOverlay />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen overflow-x-hidden">
         {activeView === 'home' && (
@@ -253,8 +243,8 @@ const App: React.FC = () => {
             <h2 className="text-3xl font-black text-white mb-8">系統設定</h2>
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-8">
               <section className="space-y-4">
-                <h3 className="text-xl font-bold text-white">API 設定</h3>
-                <p className="text-sm text-slate-400">目前也可以透過右下角的浮動視窗快速更新 API Key。</p>
+                <h3 className="text-xl font-bold text-white">關於 SmartMind</h3>
+                <p className="text-sm text-slate-400">所有數據分析與計畫生成均透過 Google Gemini 3 模型完成。</p>
               </section>
 
               <div className="h-px bg-slate-800"></div>
