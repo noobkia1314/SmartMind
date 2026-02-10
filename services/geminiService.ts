@@ -19,7 +19,6 @@ export class GeminiService {
     }`;
 
     try {
-      // Use ai.models.generateContent to query GenAI with model and prompt.
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
@@ -60,7 +59,6 @@ export class GeminiService {
           }
         }
       });
-      // Access response.text property directly to extract generated JSON string.
       return JSON.parse(response.text || '{}');
     } catch (error) {
       console.error("Gemini Error:", error);
