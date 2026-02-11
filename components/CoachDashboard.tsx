@@ -6,10 +6,10 @@ import {
   TrendingUp, ClipboardList, Lightbulb,
   Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame, ChevronDown, ChevronUp, User, Globe, Timer, Search, History, X
 } from 'lucide-react';
-import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry, UserProfileStats } from '../types';
-import MindMap from './MindMap';
-import DailyTaskModal from './DailyTaskModal';
-import { GeminiService } from '../services/geminiService';
+import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry, UserProfileStats } from '../types.ts';
+import MindMap from './MindMap.tsx';
+import DailyTaskModal from './DailyTaskModal.tsx';
+import { GeminiService } from '../services/geminiService.ts';
 
 interface CoachDashboardProps {
   goal: UserGoal;
