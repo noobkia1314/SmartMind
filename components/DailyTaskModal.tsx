@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { X, CheckCircle2, Circle, Type } from 'lucide-react';
-import { Task } from '../types';
+import { Task } from '../types.ts';
 
 interface DailyTaskModalProps {
   tasks: Task[];
