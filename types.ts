@@ -86,11 +86,11 @@ export interface UserGoal {
 }
 
 export interface UserProfile {
-  uid: string | null;
+  uid?: string;
   name: string;
-  photoURL: string | null;
+  photoURL?: string;
   isLoggedIn: boolean;
-  provider: 'google' | 'anonymous' | null;
+  provider?: 'google' | 'guest' | null;
 }
 
 export interface AppState {
