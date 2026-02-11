@@ -19,7 +19,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase.ts';
-import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, LogIn, ShieldCheck } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, LogIn, ShieldCheck, Timer } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isApiBusy, setIsApiBusy] = useState(false);
 
   const gemini = useMemo(() => new GeminiService(), []);
 
@@ -113,7 +114,6 @@ const App: React.FC = () => {
   }, [state]);
 
   const handleGoogleLogin = async () => {
-    console.log("Google login button clicked");
     setError(null);
     if (!isFirebaseConfigured) {
       setError("系統目前僅支援訪客模式 (Firebase 未設定)");
@@ -122,7 +122,6 @@ const App: React.FC = () => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      console.error("Login failed:", err);
       setError("登入失敗，請稍後再試");
     }
   };
@@ -155,6 +154,10 @@ const App: React.FC = () => {
     if (!goalInput.trim() || isLoading) return;
     setIsLoading(true);
     setError(null);
+    setIsApiBusy(false);
+
+    // Logging as requested for debugging (simulated key display)
+    console.log("Generate button clicked, target: " + goalInput.slice(0, 20) + "...");
 
     try {
       const goalData = await gemini.generateGoalStructure(goalInput);
@@ -182,7 +185,14 @@ const App: React.FC = () => {
       setActiveView('coach');
       setGoalInput('');
     } catch (err: any) {
-      setError("AI 教練正在忙碌，請檢查網路連線或稍後再試。");
+      console.error("Gemini Generation Error:", err);
+      const errorMessage = err?.message || "";
+      if (errorMessage.includes("503") || errorMessage.includes("overloaded") || errorMessage.includes("busy")) {
+        setIsApiBusy(true);
+        setError("AI 伺服器目前很忙（高需求），這是暫時現象。");
+      } else {
+        setError("生成藍圖時發生錯誤，請檢查網路連線或稍後再試。");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -209,7 +219,6 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen pb-32 md:pb-8">
-        {/* Status Header */}
         <div className="max-w-4xl mx-auto mb-8 flex flex-wrap gap-3 items-center justify-between">
           <div className={`px-4 py-2 rounded-full border text-xs font-black flex items-center gap-2 transition-all ${state.user.isLoggedIn ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
             {state.user.isLoggedIn ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
@@ -256,11 +265,29 @@ const App: React.FC = () => {
                   onChange={(e) => setGoalInput(e.target.value)}
                   placeholder="例如：'在三個月內減重 5 公斤並跑完一次半馬' 或 '學會 React 並開發個人專案'..."
                   className="w-full bg-slate-950 border-2 border-slate-800 rounded-3xl p-6 text-lg text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none min-h-[160px] transition-all placeholder:text-slate-600"
+                  disabled={isLoading}
                 />
 
                 {error && (
-                  <div className="flex items-center gap-2 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-sm font-bold animate-in shake duration-300">
-                    <AlertCircle size={18} /> {error}
+                  <div className={`p-6 rounded-3xl border animate-in slide-in-from-top-2 duration-300 ${isApiBusy ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                    <div className="flex items-start gap-4">
+                      <div className="shrink-0 mt-1">
+                        {isApiBusy ? <Timer size={24} /> : <AlertCircle size={24} />}
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <p className="font-bold text-sm leading-relaxed">
+                          {isApiBusy 
+                            ? "AI 伺服器目前很忙（高需求），這是暫時現象，請 10–30 分鐘後再試，或換時間使用。" 
+                            : error}
+                        </p>
+                        <button 
+                          onClick={handleStartGoal}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${isApiBusy ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-rose-600 text-white hover:bg-rose-500'}`}
+                        >
+                          <RefreshCw size={14} /> 立即重試
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -280,7 +307,10 @@ const App: React.FC = () => {
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-5 rounded-3xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-4 group"
                   >
                     {isLoading ? (
-                      <RefreshCw className="animate-spin" />
+                      <div className="flex items-center gap-3">
+                        <RefreshCw className="animate-spin" />
+                        <span>正在生成您的藍圖...</span>
+                      </div>
                     ) : (
                       <>啟動 AI 教練 <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
                     )}
@@ -291,10 +321,12 @@ const App: React.FC = () => {
 
             {state.goals.length > 0 && (
               <div className="space-y-6 pt-4">
-                <h2 className="text-2xl font-black text-white flex items-center gap-3">
-                  <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
-                  活躍目標
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                    <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+                    活躍目標
+                  </h2>
+                </div>
                 <GoalList goals={state.goals} onSelectGoal={(id) => { setState(prev => ({...prev, activeGoalId: id})); setActiveView('coach'); }} />
               </div>
             )}
