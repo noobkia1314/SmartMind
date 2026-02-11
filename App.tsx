@@ -19,7 +19,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase.ts';
-import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, LogIn, ShieldCheck, Timer } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, LogIn, ShieldCheck, Timer, Key } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -152,12 +152,16 @@ const App: React.FC = () => {
 
   const handleStartGoal = async () => {
     if (!goalInput.trim() || isLoading) return;
+    
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      setError("未偵測到 Gemini API Key。請確認環境變數已正確設定。");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setIsApiBusy(false);
-
-    // Logging as requested for debugging (simulated key display)
-    console.log("Generate button clicked, target: " + goalInput.slice(0, 20) + "...");
 
     try {
       const goalData = await gemini.generateGoalStructure(goalInput);
@@ -167,13 +171,13 @@ const App: React.FC = () => {
         description: '',
         startDate: new Date().toISOString(),
         mindMap: goalData.mindMap,
-        tasks: goalData.tasks.map((t: any) => ({
+        tasks: goalData.tasks?.map((t: any) => ({
           id: crypto.randomUUID(),
           title: t.title,
           category: t.category,
           completed: false,
           date: new Date().toISOString().split('T')[0]
-        })),
+        })) || [],
         foodLogs: [], exerciseLogs: [], readingLogs: [], financeLogs: []
       };
 
@@ -189,7 +193,7 @@ const App: React.FC = () => {
       const errorMessage = err?.message || "";
       if (errorMessage.includes("503") || errorMessage.includes("overloaded") || errorMessage.includes("busy")) {
         setIsApiBusy(true);
-        setError("AI 伺服器目前很忙（高需求），這是暫時現象。");
+        setError("AI 伺服器目前忙碌中（高需求）。這是暫時現象，請點擊下方按鈕重試。");
       } else {
         setError("生成藍圖時發生錯誤，請檢查網路連線或稍後再試。");
       }
@@ -225,14 +229,20 @@ const App: React.FC = () => {
             {state.user.isLoggedIn ? (state.user.provider === 'google' ? '雲端同步：已啟動' : '離線模式：資料存於本地') : '尚未登入'}
           </div>
           
-          {state.user.isLoggedIn && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-800">
-              {state.user.photoURL ? (
-                <img src={state.user.photoURL} alt="" className="w-5 h-5 rounded-full" />
-              ) : <UserCircle size={14} className="text-indigo-400" />}
-              <span className="text-xs font-bold text-white">{state.user.name}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${process.env.API_KEY ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+               <Key size={12} />
+               {process.env.API_KEY ? 'Gemini API: 已連線' : 'Gemini API: 未設定'}
+             </div>
+            {state.user.isLoggedIn && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-800">
+                {state.user.photoURL ? (
+                  <img src={state.user.photoURL} alt="" className="w-5 h-5 rounded-full" />
+                ) : <UserCircle size={14} className="text-indigo-400" />}
+                <span className="text-xs font-bold text-white">{state.user.name}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {activeView === 'home' && (
@@ -263,7 +273,7 @@ const App: React.FC = () => {
                 <textarea
                   value={goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
-                  placeholder="例如：'在三個月內減重 5 公斤並跑完一次半馬' 或 '學會 React 並開發個人專案'..."
+                  placeholder="例如：'在三個月內減重 5 公斤並跑完一次半馬'..."
                   className="w-full bg-slate-950 border-2 border-slate-800 rounded-3xl p-6 text-lg text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none min-h-[160px] transition-all placeholder:text-slate-600"
                   disabled={isLoading}
                 />
@@ -277,12 +287,12 @@ const App: React.FC = () => {
                       <div className="flex-1 space-y-3">
                         <p className="font-bold text-sm leading-relaxed">
                           {isApiBusy 
-                            ? "AI 伺服器目前很忙（高需求），這是暫時現象，請 10–30 分鐘後再試，或換時間使用。" 
+                            ? "AI 伺服器目前忙碌中（高需求），這是暫時現象。請點擊下方重試。" 
                             : error}
                         </p>
                         <button 
                           onClick={handleStartGoal}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${isApiBusy ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-rose-600 text-white hover:bg-rose-500'}`}
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg ${isApiBusy ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-rose-600 text-white hover:bg-rose-500'}`}
                         >
                           <RefreshCw size={14} /> 立即重試
                         </button>
@@ -321,12 +331,10 @@ const App: React.FC = () => {
 
             {state.goals.length > 0 && (
               <div className="space-y-6 pt-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-black text-white flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
-                    活躍目標
-                  </h2>
-                </div>
+                <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                  <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+                  活躍目標
+                </h2>
                 <GoalList goals={state.goals} onSelectGoal={(id) => { setState(prev => ({...prev, activeGoalId: id})); setActiveView('coach'); }} />
               </div>
             )}
