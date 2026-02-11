@@ -281,7 +281,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
   const getAdvice = async () => {
     if (!gemini) {
-      setCoachAdvice("### 系統訊息\n- AI 教練暫時無法連線。請檢查後端配置。");
+      setCoachAdvice("### 系統訊息\n- AI 教練暫時無法連線。請檢查環境變數設定。");
       return;
     }
     setLoading(true);
@@ -289,11 +289,15 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     const summary = `Goal: ${goal.title}. Total Tasks: ${goal.tasks.length}, Completed: ${goal.tasks.filter(t => t.completed).length}. Total Calories: ${goal.foodLogs.reduce((acc, f) => acc + f.calories, 0)}. Fitness duration: ${goal.exerciseLogs.reduce((acc, e) => acc + (e.unit === 'minutes' ? e.value : 0), 0)}. Finance balance: ${goal.financeLogs.reduce((acc, f) => acc + (f.type === 'income' ? f.amount : -f.amount), 0)}.`;
     try {
       const advice = await gemini.getCoachAdvice(summary);
-      setCoachAdvice(advice || "Coach is momentarily unavailable.");
+      setCoachAdvice(advice || "AI 教練目前無法提供建議。");
     } catch (err: any) {
       const is503 = err?.status === 503 || err?.message?.includes('503') || err?.message?.includes('Service Unavailable') || err?.message?.includes('overloaded');
-      if (is503) setIsServiceBusy(true);
-      else setCoachAdvice("連線失敗，請檢查 API 設定。");
+      if (is503) {
+        setIsServiceBusy(true);
+        setCoachAdvice("### 伺服器忙碌中\nAI 教練伺服器目前高需求，請稍候重試。");
+      } else {
+        setCoachAdvice("連線失敗，請檢查 API 設定或網路連線。");
+      }
     } finally {
       setLoading(false);
     }
@@ -403,7 +407,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                 日曆
               </h3>
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs">
+            <div className="grid grid-cols-7 gap-2 text-center mb-2 text-xs">
               {['日', '一', '二', '三', '四', '五', '六'].map(d => (
                 <span key={d} className="text-[10px] font-black text-slate-500 uppercase">{d}</span>
               ))}
@@ -416,7 +420,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                   <button
                     key={day}
                     onClick={() => setSelectedDate(dateStr)}
-                    className={`aspect-square flex items-center justify-center rounded-lg text-sm font-bold transition-all ${
+                    className={`aspect-square min-w-[32px] md:min-w-[40px] flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
                       isActive ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400'
                     }`}
                   >
