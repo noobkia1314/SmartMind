@@ -36,7 +36,7 @@ export interface ExerciseEntry {
   id: string;
   name: string;
   value: number;
-  unit: 'minutes' | 'sets' | 'reps';
+  unit: 'minutes' | 'seconds' | 'sets' | 'reps';
   caloriesBurned: number;
   date: string;
 }
