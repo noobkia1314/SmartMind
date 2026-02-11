@@ -1,6 +1,6 @@
 
 import { initializeApp, getApp, getApps } from 'firebase/app';
-// Fix: Import auth functions from @firebase/auth as firebase/auth might not expose named exports correctly in this environment
+// Fix: Use @firebase/auth directly to ensure modular exports are recognized in this environment
 import { 
   getAuth, 
   GoogleAuthProvider, 
