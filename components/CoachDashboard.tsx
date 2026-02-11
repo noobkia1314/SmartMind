@@ -124,23 +124,31 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     }
 
     if (!gemini) {
-       // Improved fallback logic based on weight and activity
-       let durationMultiplier = 0;
-       if (exerciseInput.unit === 'minutes') {
-         durationMultiplier = exerciseInput.value;
-       } else if (exerciseInput.unit === 'seconds') {
-         durationMultiplier = exerciseInput.value / 60;
-       } else {
-         durationMultiplier = exerciseInput.value * 2;
-       }
+       // Manual MET Lookup for Fallback
+       let met = 5; // Default MET
+       const name = exerciseInput.name.toLowerCase();
+       if (name.includes('跑')) met = 8;
+       else if (name.includes('重') || name.includes('訓練') || name.includes('舉') || name.includes('蹲')) met = 7;
+       else if (name.includes('走') || name.includes('步行')) met = 3.5;
+       else if (name.includes('hiit') || name.includes('高強度')) met = 10;
+       else if (name.includes('游泳')) met = 7;
+       else if (name.includes('單車') || name.includes('騎')) met = 6;
+
+       // Unit conversion to hours
+       let hours = 0;
+       if (exerciseInput.unit === 'minutes') hours = exerciseInput.value / 60;
+       else if (exerciseInput.unit === 'seconds') hours = exerciseInput.value / 3600;
+       else if (exerciseInput.unit === 'sets') hours = (exerciseInput.value * 1) / 60; // 1 min per set
+       else if (exerciseInput.unit === 'reps') hours = (exerciseInput.value * 5) / 3600; // 5 sec per rep
        
-       const weightAdjuster = userStats.weight / 70;
+       const caloriesBurned = Math.round(met * userStats.weight * hours);
+
        const newEntry: ExerciseEntry = {
         id: crypto.randomUUID(),
         name: exerciseInput.name,
         value: exerciseInput.value,
         unit: exerciseInput.unit,
-        caloriesBurned: Math.round(durationMultiplier * 5 * weightAdjuster),
+        caloriesBurned: caloriesBurned,
         date: selectedDate
       };
       onUpdateGoal({ ...goal, exerciseLogs: [...goal.exerciseLogs, newEntry] });
@@ -673,25 +681,33 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                           <p className="text-slate-600 text-sm">尚未記錄任何運動</p>
                         </div>
                       ) : (
-                        dailyExerciseLogs.map(log => (
-                          <div key={log.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center">
-                                {getUnitIcon(log.unit)}
+                        <div className="space-y-2">
+                          {dailyExerciseLogs.map(log => (
+                            <div key={log.id} className="flex flex-col p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center">
+                                    {getUnitIcon(log.unit)}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-white leading-tight">{log.name}</p>
+                                    <p className="text-[10px] text-slate-500 font-bold">{log.value} {getUnitLabel(log.unit)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <div className="text-right">
+                                    <span className="text-sm font-black text-rose-400 block">{log.caloriesBurned} kcal</span>
+                                    <span className="text-[9px] text-slate-600 font-bold block uppercase tracking-tighter">估計消耗</span>
+                                  </div>
+                                  <button onClick={() => handleRemoveExercise(log.id)} className="text-slate-600 hover:text-rose-500 transition-colors">
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-bold text-white leading-tight">{log.name}</p>
-                                <p className="text-[10px] text-slate-500 font-bold">{log.value} {getUnitLabel(log.unit)}</p>
-                              </div>
+                              <p className="text-[9px] text-slate-700 italic border-t border-slate-800/50 pt-1 text-center">依個人資料估算，實際值因人而異</p>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <span className="text-sm font-black text-rose-400">{log.caloriesBurned} kcal</span>
-                              <button onClick={() => handleRemoveExercise(log.id)} className="text-slate-600 hover:text-rose-500 transition-colors">
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        ))
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
