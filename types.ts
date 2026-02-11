@@ -86,7 +86,9 @@ export interface UserGoal {
 }
 
 export interface UserProfile {
+  uid: string | null;
   name: string;
+  photoURL: string | null;
   isLoggedIn: boolean;
   provider: 'google' | 'anonymous' | null;
 }
