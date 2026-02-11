@@ -6,7 +6,7 @@ export class GeminiService {
   private getClient() {
     // Priority: 1. User-set key in localStorage 2. Environment variable
     const localStorageKey = localStorage.getItem("GEMINI_API_KEY");
-    const envKey = process.env.API_KEY;
+    const envKey = (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
     const apiKey = localStorageKey || envKey;
 
     console.log("Gemini API Key source:", localStorageKey ? "localStorage" : (envKey ? "env var" : "missing"));
@@ -16,6 +16,7 @@ export class GeminiService {
       console.warn("Gemini API Key is missing. Please set GEMINI_API_KEY in localStorage or provide process.env.API_KEY.");
     }
 
+    // Creating a fresh instance to ensure the latest API key is used
     return new GoogleGenAI({ apiKey: apiKey || "" });
   }
 
@@ -73,8 +74,7 @@ export class GeminiService {
           }
         }
       });
-      const text = response.text;
-      return JSON.parse(text?.trim() || '{}');
+      return JSON.parse(response.text?.trim() || '{}');
     } catch (error) {
       console.error("Gemini Error:", error);
       throw error;
@@ -100,8 +100,7 @@ export class GeminiService {
           }
         }
       });
-      const text = response.text;
-      return JSON.parse(text?.trim() || '{"calories": 0, "protein": 0}');
+      return JSON.parse(response.text?.trim() || '{"calories": 0, "protein": 0}');
     } catch (error) {
       console.error("Nutrition calculation failed:", error);
       return { calories: 0, protein: 0 };
@@ -129,8 +128,7 @@ export class GeminiService {
           }
         }
       });
-      const text = response.text;
-      const data = JSON.parse(text?.trim() || '{"caloriesBurned": 0}');
+      const data = JSON.parse(response.text?.trim() || '{"caloriesBurned": 0}');
       return data;
     } catch (error) {
       console.error("Exercise calculation failed:", error);
