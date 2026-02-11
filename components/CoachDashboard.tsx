@@ -1,12 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame, ChevronDown, ChevronUp, User
 } from 'lucide-react';
-import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
+import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry, UserProfileStats } from '../types';
 import MindMap from './MindMap';
 import DailyTaskModal from './DailyTaskModal';
 import { GeminiService } from '../services/geminiService';
@@ -21,10 +21,22 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [mindMapCollapsed, setMindMapCollapsed] = useState(true);
+  const [profileCollapsed, setProfileCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<RecordType>(RecordType.DIET);
   const [loading, setLoading] = useState(false);
   const [coachAdvice, setCoachAdvice] = useState<string>('');
   const [isServiceBusy, setIsServiceBusy] = useState(false);
+
+  // User Stats state
+  const [userStats, setUserStats] = useState<UserProfileStats>(() => {
+    const saved = localStorage.getItem('smartmind_user_stats');
+    if (saved) return JSON.parse(saved);
+    return { age: 25, gender: 'male', height: 175, weight: 70, activityLevel: 'moderate' };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('smartmind_user_stats', JSON.stringify(userStats));
+  }, [userStats]);
 
   // Local entry states
   const [foodInput, setFoodInput] = useState('');
@@ -85,13 +97,24 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
   const handleAddExercise = async () => {
     if (!exerciseInput.name) return;
+
+    // Check if stats are reasonably filled
+    if (!userStats.weight || !userStats.height || !userStats.age) {
+      alert("請先填寫個人資料以獲得更準確估算");
+      setProfileCollapsed(false);
+      return;
+    }
+
     if (!gemini) {
+       // Improved fallback logic based on weight and activity
+       const durationMultiplier = exerciseInput.unit === 'minutes' ? exerciseInput.value : exerciseInput.value * 2;
+       const weightAdjuster = userStats.weight / 70;
        const newEntry: ExerciseEntry = {
         id: crypto.randomUUID(),
         name: exerciseInput.name,
         value: exerciseInput.value,
         unit: exerciseInput.unit,
-        caloriesBurned: exerciseInput.value * 5,
+        caloriesBurned: Math.round(durationMultiplier * 5 * weightAdjuster),
         date: selectedDate
       };
       onUpdateGoal({ ...goal, exerciseLogs: [...goal.exerciseLogs, newEntry] });
@@ -100,7 +123,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     }
     setLoading(true);
     try {
-      const data = await gemini.calculateExercise(exerciseInput.name, exerciseInput.value, exerciseInput.unit);
+      const data = await gemini.calculateExercise(exerciseInput.name, exerciseInput.value, exerciseInput.unit, userStats);
       const newEntry: ExerciseEntry = {
         id: crypto.randomUUID(),
         name: exerciseInput.name,
@@ -396,6 +419,148 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                 </div>
               )}
 
+              {activeTab === RecordType.EXERCISE && (
+                <div className="space-y-6">
+                  {/* User Profile Stats Section */}
+                  <div className="bg-slate-950/50 border border-slate-800 rounded-2xl overflow-hidden">
+                    <button 
+                      onClick={() => setProfileCollapsed(!profileCollapsed)}
+                      className="w-full flex items-center justify-between px-5 py-4 bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <User size={18} className="text-indigo-400" />
+                        <span className="font-black text-slate-200 text-sm">個人身體資料 (影響熱量估算)</span>
+                      </div>
+                      {profileCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    </button>
+                    
+                    {!profileCollapsed && (
+                      <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in slide-in-from-top-2 duration-200">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">年齡 (歲)</label>
+                          <input 
+                            type="number" 
+                            value={userStats.age} 
+                            onChange={e => setUserStats({...userStats, age: parseInt(e.target.value) || 0})}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">性別</label>
+                          <select 
+                            value={userStats.gender} 
+                            onChange={e => setUserStats({...userStats, gender: e.target.value as any})}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                          >
+                            <option value="male">男性</option>
+                            <option value="female">女性</option>
+                            <option value="other">其他</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">身高 (cm)</label>
+                          <input 
+                            type="number" 
+                            value={userStats.height} 
+                            onChange={e => setUserStats({...userStats, height: parseInt(e.target.value) || 0})}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">體重 (kg)</label>
+                          <input 
+                            type="number" 
+                            value={userStats.weight} 
+                            onChange={e => setUserStats({...userStats, weight: parseInt(e.target.value) || 0})}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-2 space-y-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">日常運動量等級</label>
+                          <select 
+                            value={userStats.activityLevel} 
+                            onChange={e => setUserStats({...userStats, activityLevel: e.target.value as any})}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm"
+                          >
+                            <option value="sedentary">久坐 (辦公室工作)</option>
+                            <option value="light">輕度 (每週運動 1-2 次)</option>
+                            <option value="moderate">中度 (每週運動 3-5 次)</option>
+                            <option value="heavy">高強度 (每週運動 6-7 次)</option>
+                            <option value="athlete">極高強度 (專業運動員)</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-3">
+                      <input 
+                        type="text" 
+                        placeholder="運動項目 (例如: 跑步)" 
+                        value={exerciseInput.name} 
+                        onChange={e => setExerciseInput({...exerciseInput, name: e.target.value})} 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none" 
+                      />
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <select 
+                          value={exerciseInput.unit} 
+                          onChange={e => setExerciseInput({...exerciseInput, unit: e.target.value as any})} 
+                          className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white font-bold"
+                        >
+                            <option value="minutes">分鐘</option>
+                            <option value="sets">組數</option>
+                            <option value="reps">次數</option>
+                        </select>
+                        <input 
+                          type="number" 
+                          value={exerciseInput.value} 
+                          onChange={e => setExerciseInput({...exerciseInput, value: parseInt(e.target.value) || 0})} 
+                          className="flex-1 bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        />
+                        <button 
+                          onClick={handleAddExercise} 
+                          disabled={loading}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 rounded-2xl font-black flex items-center justify-center py-3 shadow-xl transition-all active:scale-95"
+                        >
+                          {loading ? <RefreshCw size={20} className="animate-spin" /> : <Plus size={20} className="mr-2" />}
+                          記錄運動
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">今日運動清單</h4>
+                      {dailyExerciseLogs.length === 0 ? (
+                        <div className="p-8 border-2 border-dashed border-slate-800 rounded-2xl text-center">
+                          <p className="text-slate-600 text-sm">尚未記錄任何運動</p>
+                        </div>
+                      ) : (
+                        dailyExerciseLogs.map(log => (
+                          <div key={log.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center">
+                                {getUnitIcon(log.unit)}
+                              </div>
+                              <div>
+                                <p className="font-bold text-white leading-tight">{log.name}</p>
+                                <p className="text-[10px] text-slate-500 font-bold">{log.value} {getUnitLabel(log.unit)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-black text-rose-400">{log.caloriesBurned} kcal</span>
+                              <button onClick={() => handleRemoveExercise(log.id)} className="text-slate-600 hover:text-rose-500 transition-colors">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === RecordType.FINANCE && (
                 <div className="space-y-4">
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -423,45 +588,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                         ))}
                       </tbody>
                     </table>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === RecordType.EXERCISE && (
-                <div className="space-y-4">
-                  <input type="text" placeholder="運動項目 (例如: 跑步)" value={exerciseInput.name} onChange={e => setExerciseInput({...exerciseInput, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white" />
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <select value={exerciseInput.unit} onChange={e => setExerciseInput({...exerciseInput, unit: e.target.value as any})} className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white">
-                        <option value="minutes">分鐘</option>
-                        <option value="sets">組數</option>
-                        <option value="reps">次數</option>
-                    </select>
-                    <input type="number" value={exerciseInput.value} onChange={e => setExerciseInput({...exerciseInput, value: parseInt(e.target.value) || 0})} className="flex-1 bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white" />
-                    <button onClick={handleAddExercise} className="bg-indigo-600 text-white px-8 rounded-2xl font-black flex items-center justify-center py-3">
-                      <Plus size={20} className="mr-2" />
-                      記錄運動
-                    </button>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {dailyExerciseLogs.map(log => (
-                      <div key={log.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center">
-                            {getUnitIcon(log.unit)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-white leading-tight">{log.name}</p>
-                            <p className="text-[10px] text-slate-500 font-bold">{log.value} {getUnitLabel(log.unit)}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm font-black text-rose-400">{log.caloriesBurned} kcal</span>
-                          <button onClick={() => handleRemoveExercise(log.id)} className="text-slate-600 hover:text-rose-500 transition-colors">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
