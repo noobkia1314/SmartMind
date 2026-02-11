@@ -1,14 +1,7 @@
 
 import { initializeApp, getApp, getApps } from 'firebase/app';
-// Fix: Use @firebase/auth directly to ensure modular exports are recognized in this environment
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  signInAnonymously, 
-  signOut 
-} from '@firebase/auth';
+// Fix: Use namespace import for auth to resolve "no exported member" errors in certain module resolution contexts
+import * as authModule from 'firebase/auth';
 import { 
   getFirestore, 
   doc, 
@@ -17,26 +10,42 @@ import {
   updateDoc 
 } from 'firebase/firestore';
 
-// Helper to safely get environment variables
-const getEnv = (key: string) => {
+// Fix: Destructure from authModule to fix import errors while keeping existing logic intact
+const { 
+  getAuth, 
+  GoogleAuthProvider, 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signInAnonymously, 
+  signOut 
+} = authModule;
+
+// Helper function to safely access environment variables
+const getEnvVar = (key: string): string | undefined => {
   try {
-    return (import.meta as any).env?.[key] || null;
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      return (import.meta as any).env[key];
+    }
+    if (typeof process !== 'undefined' && process.env) {
+      return (process.env as any)[key];
+    }
   } catch (e) {
-    return null;
+    // Silent fail
   }
+  return undefined;
 };
 
-// 使用環境變數讀取 Vercel/Vite 配置
+// Initialize Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnv('VITE_FIREBASE_APP_ID')
+  apiKey: getEnvVar('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnvVar('VITE_FIREBASE_APP_ID')
 };
 
-// 檢查配置是否完整
+// Check if Firebase configuration is complete
 export const isFirebaseConfigured = !!firebaseConfig.apiKey;
 
 let app;
@@ -46,13 +55,19 @@ let googleProvider: any = null;
 
 if (isFirebaseConfigured) {
   try {
+    // Initialize Firebase app or retrieve the existing one
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    googleProvider = new GoogleAuthProvider();
+    if (app) {
+      auth = getAuth(app);
+      db = getFirestore(app);
+      googleProvider = new GoogleAuthProvider();
+      console.log("Firebase auth initialized");
+    }
   } catch (error) {
     console.error("Firebase initialization failed:", error);
   }
+} else {
+  console.warn("Firebase configuration is missing or incomplete. Cloud Sync features will be unavailable.");
 }
 
 export { 
