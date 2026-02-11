@@ -106,15 +106,26 @@ export class GeminiService {
 
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
     const ai = this.getClient();
-    const prompt = `Calculate calories burned for exercise: "${exercise}" volume: ${value} ${unit}.
-    User Profile:
+    const prompt = `Precisely calculate calories burned for: "${exercise}" volume: ${value} ${unit}.
+    
+    User Physical Stats:
     - Age: ${stats.age}
     - Gender: ${stats.gender}
     - Height: ${stats.height}cm
     - Weight: ${stats.weight}kg
-    - Activity Level: ${stats.activityLevel}
+    - Base Activity Level: ${stats.activityLevel}
     
-    Use Harris-Benedict BMR and MET values to calculate precisely. Return as an integer.`;
+    CALCULATION RULES:
+    1. Identify the MET (Metabolic Equivalent) for "${exercise}".
+    2. If unit is 'minutes', hours = ${value}/60.
+    3. If unit is 'seconds', hours = ${value}/3600.
+    4. If unit is 'sets', assume 1 min per set, hours = ${value}/60.
+    5. If unit is 'reps', assume 5 sec per rep, hours = (${value} * 5)/3600.
+    6. Formula: Cal = MET * ${stats.weight} * hours.
+    7. Adjust result based on Age and Gender BMR factors (Harris-Benedict).
+    
+    Return the result as a single integer for "caloriesBurned".`;
+    
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
