@@ -1,12 +1,12 @@
 
 import React from 'react';
-import { LayoutDashboard, Target, Settings, LogOut, Smartphone, User, Key, LogIn, UserCircle } from 'lucide-react';
+import { LayoutDashboard, Target, Settings, LogOut, Smartphone, UserCircle, LogIn } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface SidebarProps {
   user: UserProfile;
   onLogout: () => void;
-  onLogin: (provider: 'google' | 'anonymous') => void;
+  onLogin: () => void;
   activeView: string;
   setActiveView: (view: string) => void;
 }
@@ -54,26 +54,18 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="mt-auto pt-8 border-t border-slate-800 space-y-4">
           {!user.isLoggedIn ? (
-            <div className="space-y-2">
-              <button 
-                onClick={() => onLogin('google')}
-                className="w-full bg-white text-slate-900 px-4 py-3 rounded-xl text-xs font-black hover:bg-slate-100 transition-all flex items-center justify-center gap-2 shadow-xl active:scale-95"
-              >
-                <LogIn size={16} />
-                Google 登入
-              </button>
-              <button 
-                onClick={() => onLogin('anonymous')}
-                className="w-full bg-slate-800/50 text-slate-400 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95"
-              >
-                Anonymous 後備
-              </button>
-            </div>
+            <button 
+              onClick={onLogin}
+              className="w-full bg-indigo-600 text-white px-4 py-3 rounded-xl text-xs font-black hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 shadow-xl active:scale-95"
+            >
+              <LogIn size={16} />
+              Google 登入
+            </button>
           ) : (
             <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-2xl border border-slate-800 transition-all hover:border-indigo-500/30">
               <div className="shrink-0">
                 {user.photoURL ? (
-                  <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full border border-indigo-500/30 shadow-sm" />
+                  <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full border border-indigo-500/30" />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
                     <UserCircle size={22} />
@@ -81,8 +73,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-white truncate leading-tight">{user.name}</p>
-                <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black">{user.provider}</p>
+                <p className="text-sm font-black text-white truncate leading-tight">{user.name || 'Explorer'}</p>
+                <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black">
+                  {user.provider === 'google' ? 'Cloud Sync' : 'Guest Mode'}
+                </p>
               </div>
               <button onClick={onLogout} className="text-slate-600 hover:text-rose-500 transition-colors p-1">
                 <LogOut size={16} />
