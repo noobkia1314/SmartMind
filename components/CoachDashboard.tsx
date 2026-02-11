@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Utensils, Activity, BookOpen, DollarSign, 
@@ -358,6 +359,13 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     return { firstDay, days };
   }, [selectedDate]);
 
+  const tabItems = [
+    { id: RecordType.DIET, icon: Utensils, label: '飲食' },
+    { id: RecordType.EXERCISE, icon: Activity, label: '運動' },
+    { id: RecordType.FINANCE, icon: DollarSign, label: '財務' },
+    { id: RecordType.READING, icon: BookOpen, label: '閱讀' },
+  ];
+
   return (
     <div className="flex flex-col gap-6 max-w-6xl mx-auto pb-24 md:pb-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -477,21 +485,19 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-sm overflow-hidden">
             <div className="flex border-b border-slate-800 overflow-x-auto custom-scrollbar bg-slate-800/20">
-              {[
-                { id: RecordType.DIET, icon: Utensils, label: '飲食' },
-                { id: RecordType.EXERCISE, icon: Activity, label: '運動' },
-                { id: RecordType.FINANCE, icon: DollarSign, label: '財務' },
-                { id: RecordType.READING, icon: BookOpen, label: '閱讀' },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as RecordType)}
-                  className={`flex items-center gap-2 px-6 py-4 font-black whitespace-nowrap transition-all border-b-2 ${activeTab === tab.id ? 'text-indigo-400 border-indigo-400 bg-indigo-500/5' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
-                >
-                  <tab.icon size={18} />
-                  {tab.label}
-                </button>
-              ))}
+              {tabItems.map(tab => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as RecordType)}
+                    className={`flex items-center gap-2 px-6 py-4 font-black whitespace-nowrap transition-all border-b-2 ${activeTab === tab.id ? 'text-indigo-400 border-indigo-400 bg-indigo-500/5' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+                  >
+                    <Icon size={18} />
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="p-6">
@@ -802,31 +808,34 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {dailyExerciseLogs.map(log => (
-                            <div key={log.id} className="flex flex-col p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center">
-                                    {getUnitIcon(log.unit)}
+                          {dailyExerciseLogs.map(log => {
+                            const UnitIcon = getUnitIcon(log.unit);
+                            return (
+                              <div key={log.id} className="flex flex-col p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center">
+                                      {UnitIcon}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-white leading-tight">{log.name}</p>
+                                      <p className="text-[10px] text-slate-500 font-bold">{log.value} {getUnitLabel(log.unit)}</p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="font-bold text-white leading-tight">{log.name}</p>
-                                    <p className="text-[10px] text-slate-500 font-bold">{log.value} {getUnitLabel(log.unit)}</p>
+                                  <div className="flex items-center gap-4">
+                                    <div className="text-right">
+                                      <span className="text-sm font-black text-rose-400 block">{log.caloriesBurned} kcal</span>
+                                      <span className="text-[9px] text-slate-600 font-bold block uppercase tracking-tighter">估計消耗</span>
+                                    </div>
+                                    <button onClick={() => handleRemoveExercise(log.id)} className="text-slate-600 hover:text-rose-500 transition-colors">
+                                      <Trash2 size={16} />
+                                    </button>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="text-right">
-                                    <span className="text-sm font-black text-rose-400 block">{log.caloriesBurned} kcal</span>
-                                    <span className="text-[9px] text-slate-600 font-bold block uppercase tracking-tighter">估計消耗</span>
-                                  </div>
-                                  <button onClick={() => handleRemoveExercise(log.id)} className="text-slate-600 hover:text-rose-500 transition-colors">
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
+                                <p className="text-[9px] text-slate-700 italic border-t border-slate-800/50 pt-1 text-center">依個人資料估算，實際值因人而異</p>
                               </div>
-                              <p className="text-[9px] text-slate-700 italic border-t border-slate-800/50 pt-1 text-center">依個人資料估算，實際值因人而異</p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
