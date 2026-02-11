@@ -4,7 +4,7 @@ import {
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry } from '../types';
 import MindMap from './MindMap';
@@ -95,7 +95,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
         date: selectedDate
       };
       onUpdateGoal({ ...goal, exerciseLogs: [...goal.exerciseLogs, newEntry] });
-      setExerciseInput({ ...exerciseInput, name: '', value: 30 });
+      setExerciseInput({ ...exerciseInput, name: '', value: 30, unit: 'minutes' });
       return;
     }
     setLoading(true);
@@ -110,7 +110,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
         date: selectedDate
       };
       onUpdateGoal({ ...goal, exerciseLogs: [...goal.exerciseLogs, newEntry] });
-      setExerciseInput({ ...exerciseInput, name: '', value: 30 });
+      setExerciseInput({ ...exerciseInput, name: '', value: 30, unit: 'minutes' });
     } catch (err) {
         console.error(err);
     } finally {
@@ -173,7 +173,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
       const advice = await gemini.getCoachAdvice(summary);
       setCoachAdvice(advice || "Coach is momentarily unavailable.");
     } catch (err: any) {
-      const is503 = err?.status === 503 || err?.message?.includes('503') || err?.message?.includes('overloaded');
+      const is503 = err?.status === 503 || err?.message?.includes('503') || err?.message?.includes('Service Unavailable') || err?.message?.includes('overloaded');
       if (is503) setIsServiceBusy(true);
       else setCoachAdvice("連線失敗，請檢查 API Key。");
     } finally {
@@ -188,6 +188,12 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const dailyTotalCaloriesBurned = useMemo(() => 
     dailyExerciseLogs.reduce((acc, log) => acc + log.caloriesBurned, 0),
   [dailyExerciseLogs]);
+
+  const dailyTotalCaloriesIngested = useMemo(() => 
+    goal.foodLogs.filter(f => f.date === selectedDate).reduce((acc, log) => acc + log.calories, 0),
+  [goal.foodLogs, selectedDate]);
+
+  const netCalories = dailyTotalCaloriesIngested - dailyTotalCaloriesBurned;
 
   const financeStats = useMemo(() => {
     const totals = goal.financeLogs.reduce((acc, curr) => {
@@ -299,17 +305,38 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
               報告摘要
             </h3>
             <div className="space-y-3">
-              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50 flex justify-between">
-                <span className="text-xs font-bold text-slate-500">已攝取熱量</span>
-                <span className="text-sm font-black text-indigo-400">{goal.foodLogs.reduce((a, b) => a + b.calories, 0)} kcal</span>
+              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">健康熱量 (攝取)</span>
+                  <Utensils size={14} className="text-indigo-400" />
+                </div>
+                <p className="text-lg font-black text-white">{dailyTotalCaloriesIngested} kcal</p>
               </div>
-              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50 flex justify-between">
-                <span className="text-xs font-bold text-slate-500">已消耗熱量</span>
-                <span className="text-sm font-black text-rose-400">{goal.exerciseLogs.reduce((a, b) => a + b.caloriesBurned, 0)} kcal</span>
+
+              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">運動消耗</span>
+                  <Flame size={14} className="text-rose-400" />
+                </div>
+                <p className="text-lg font-black text-white">{dailyTotalCaloriesBurned} kcal</p>
               </div>
-              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50 flex justify-between">
-                <span className="text-xs font-bold text-slate-500">收支結餘</span>
-                <span className="text-sm font-black text-emerald-400">${financeStats.totals.income - financeStats.totals.expense}</span>
+
+              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">今日淨熱量</span>
+                  <PieChart size={14} className={netCalories > 0 ? 'text-emerald-400' : 'text-rose-400'} />
+                </div>
+                <p className={`text-lg font-black ${netCalories > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {netCalories} kcal
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/50">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">累積收支結餘</span>
+                  <Wallet size={14} className="text-emerald-400" />
+                </div>
+                <p className="text-lg font-black text-white">${financeStats.totals.income - financeStats.totals.expense}</p>
               </div>
             </div>
           </div>
@@ -337,7 +364,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as RecordType)}
-                  className={`flex items-center gap-2 px-6 py-4 font-black transition-all border-b-2 ${activeTab === tab.id ? 'text-indigo-400 border-indigo-400 bg-indigo-500/5' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+                  className={`flex items-center gap-2 px-6 py-4 font-black whitespace-nowrap transition-all border-b-2 ${activeTab === tab.id ? 'text-indigo-400 border-indigo-400 bg-indigo-500/5' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
                 >
                   <tab.icon size={18} />
                   {tab.label}
@@ -346,7 +373,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
             </div>
 
             <div className="p-6">
-               {/* Content logic same as previous but integrated with isDemo */}
                {activeTab === RecordType.DIET && (
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -401,17 +427,87 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                 </div>
               )}
 
-              {/* ... Other tabs UI ... */}
               {activeTab === RecordType.EXERCISE && (
                 <div className="space-y-4">
-                  <input type="text" placeholder="運動" value={exerciseInput.name} onChange={e => setExerciseInput({...exerciseInput, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white" />
-                  <div className="flex gap-2">
+                  <input type="text" placeholder="運動項目 (例如: 跑步)" value={exerciseInput.name} onChange={e => setExerciseInput({...exerciseInput, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white" />
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <select value={exerciseInput.unit} onChange={e => setExerciseInput({...exerciseInput, unit: e.target.value as any})} className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white">
                         <option value="minutes">分鐘</option>
+                        <option value="sets">組數</option>
                         <option value="reps">次數</option>
                     </select>
                     <input type="number" value={exerciseInput.value} onChange={e => setExerciseInput({...exerciseInput, value: parseInt(e.target.value) || 0})} className="flex-1 bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white" />
-                    <button onClick={handleAddExercise} className="bg-indigo-600 text-white px-8 rounded-2xl font-black"><Plus /></button>
+                    <button onClick={handleAddExercise} className="bg-indigo-600 text-white px-8 rounded-2xl font-black flex items-center justify-center py-3">
+                      <Plus size={20} className="mr-2" />
+                      記錄運動
+                    </button>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {dailyExerciseLogs.map(log => (
+                      <div key={log.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center">
+                            {getUnitIcon(log.unit)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-white leading-tight">{log.name}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{log.value} {getUnitLabel(log.unit)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-black text-rose-400">{log.caloriesBurned} kcal</span>
+                          <button onClick={() => handleRemoveExercise(log.id)} className="text-slate-600 hover:text-rose-500 transition-colors">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === RecordType.READING && (
+                <div className="space-y-4">
+                  <div className="p-5 bg-slate-950/50 rounded-3xl border border-slate-800 space-y-4">
+                    <input 
+                      type="text" 
+                      placeholder="書籍名稱"
+                      value={readingInput.title}
+                      onChange={e => setReadingInput({...readingInput, title: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 font-black uppercase ml-2">總頁數</label>
+                        <input 
+                          type="number" 
+                          value={readingInput.totalPages}
+                          onChange={e => setReadingInput({...readingInput, totalPages: parseInt(e.target.value) || 0})}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 font-black uppercase ml-2">今日閱讀</label>
+                        <input 
+                          type="number" 
+                          value={readingInput.readToday}
+                          onChange={e => setReadingInput({...readingInput, readToday: parseInt(e.target.value) || 0})}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white"
+                        />
+                      </div>
+                    </div>
+                    <textarea 
+                      placeholder="今日感想..."
+                      value={readingInput.summary}
+                      onChange={e => setReadingInput({...readingInput, summary: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white min-h-[100px]"
+                    />
+                    <button 
+                      onClick={handleAddReading}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl py-4 font-black transition-all active:scale-95 shadow-xl"
+                    >
+                      記錄閱讀進度
+                    </button>
                   </div>
                 </div>
               )}
