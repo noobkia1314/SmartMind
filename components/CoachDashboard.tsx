@@ -4,7 +4,7 @@ import {
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame, ChevronDown, ChevronUp, User, Globe
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame, ChevronDown, ChevronUp, User, Globe, Timer
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry, UserProfileStats } from '../types';
 import MindMap from './MindMap';
@@ -59,7 +59,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
   // Local entry states
   const [foodInput, setFoodInput] = useState('');
-  const [exerciseInput, setExerciseInput] = useState<{name: string; value: number; unit: 'minutes' | 'sets' | 'reps'}>({ 
+  const [exerciseInput, setExerciseInput] = useState<{name: string; value: number; unit: 'minutes' | 'seconds' | 'sets' | 'reps'}>({ 
     name: '', 
     value: 30, 
     unit: 'minutes' 
@@ -124,7 +124,16 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     }
 
     if (!gemini) {
-       const durationMultiplier = exerciseInput.unit === 'minutes' ? exerciseInput.value : exerciseInput.value * 2;
+       // Improved fallback logic based on weight and activity
+       let durationMultiplier = 0;
+       if (exerciseInput.unit === 'minutes') {
+         durationMultiplier = exerciseInput.value;
+       } else if (exerciseInput.unit === 'seconds') {
+         durationMultiplier = exerciseInput.value / 60;
+       } else {
+         durationMultiplier = exerciseInput.value * 2;
+       }
+       
        const weightAdjuster = userStats.weight / 70;
        const newEntry: ExerciseEntry = {
         id: crypto.randomUUID(),
@@ -255,6 +264,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const getUnitLabel = (unit: string) => {
     switch (unit) {
       case 'minutes': return '分鐘';
+      case 'seconds': return '秒';
       case 'sets': return '組數';
       case 'reps': return '次數';
       default: return '';
@@ -264,6 +274,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const getUnitIcon = (unit: string) => {
     switch (unit) {
       case 'minutes': return <Clock size={16} />;
+      case 'seconds': return <Timer size={16} />;
       case 'sets': return <Dumbbell size={16} />;
       case 'reps': return <Repeat size={16} />;
       default: return null;
@@ -634,6 +645,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                           className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white font-bold"
                         >
                             <option value="minutes">分鐘</option>
+                            <option value="seconds">秒</option>
                             <option value="sets">組數</option>
                             <option value="reps">次數</option>
                         </select>
