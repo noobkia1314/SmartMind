@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { MindMapNode } from '../types';
+import { MindMapNode } from '../types.ts';
 import { ChevronDown, ChevronUp, Clock, Target, CheckCircle2, Info, LayoutList, RefreshCw } from 'lucide-react';
 
 interface MindMapProps {
