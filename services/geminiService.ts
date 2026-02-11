@@ -1,10 +1,9 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { UserProfileStats } from "../types";
 
 const getApiKey = () => {
-  // Check localStorage first as it's the primary way users configure it in this app
   const storedKey = localStorage.getItem('GEMINI_API_KEY');
-  // Fallback to environment variable if injected
   const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
   return storedKey || envKey || '';
 };
@@ -105,9 +104,17 @@ export class GeminiService {
     }
   }
 
-  async calculateExercise(exercise: string, value: number, unit: string) {
+  async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
     const ai = this.getClient();
-    const prompt = `Calculate estimated calories burned for: "${exercise}" with a volume of ${value} ${unit}. Use MET values for time-based exercise and standard metabolic equivalents for strength training/reps. Return only the caloriesBurned as an integer.`;
+    const prompt = `Calculate calories burned for exercise: "${exercise}" volume: ${value} ${unit}.
+    User Profile:
+    - Age: ${stats.age}
+    - Gender: ${stats.gender}
+    - Height: ${stats.height}cm
+    - Weight: ${stats.weight}kg
+    - Activity Level: ${stats.activityLevel}
+    
+    Use Harris-Benedict BMR and MET values to calculate precisely. Return as an integer.`;
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -123,7 +130,8 @@ export class GeminiService {
           }
         }
       });
-      return JSON.parse(response.text || '{"caloriesBurned": 0}');
+      const data = JSON.parse(response.text || '{"caloriesBurned": 0}');
+      return data;
     } catch (error) {
       console.error("Exercise calculation failed:", error);
       return { caloriesBurned: 0 };
