@@ -1,36 +1,70 @@
 
-// DO NOT use namespaced imports for Firebase v9+ modular SDK
-import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInAnonymously, signOut } from 'firebase/auth';
-import type { User } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-
-// Note: Ensure these environment variables are set in your Vercel/hosting provider dashboard
-// These are standard Firebase configuration values
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || "dummy-key",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "smartmind-coach.firebaseapp.com",
-  projectId: process.env.FIREBASE_PROJECT_ID || "smartmind-coach",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "smartmind-coach.appspot.com",
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "000000000000",
-  appId: process.env.FIREBASE_APP_ID || "1:000000000000:web:000000000000"
-};
-
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
-
-// Re-exporting functions and types to bypass potential module resolution issues in App.tsx
-export { 
+import { initializeApp, getApp, getApps } from 'firebase/app';
+// Fix: Import auth functions from @firebase/auth as firebase/auth might not expose named exports correctly in this environment
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
   onAuthStateChanged, 
   signInWithPopup, 
   signInAnonymously, 
-  signOut,
+  signOut 
+} from '@firebase/auth';
+import { 
+  getFirestore, 
   doc, 
   getDoc, 
   setDoc, 
   updateDoc 
+} from 'firebase/firestore';
+
+// Helper to safely get environment variables
+const getEnv = (key: string) => {
+  try {
+    return (import.meta as any).env?.[key] || null;
+  } catch (e) {
+    return null;
+  }
 };
 
-export type { User };
+// 使用環境變數讀取 Vercel/Vite 配置
+const firebaseConfig = {
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID')
+};
+
+// 檢查配置是否完整
+export const isFirebaseConfigured = !!firebaseConfig.apiKey;
+
+let app;
+let auth: any = null;
+let db: any = null;
+let googleProvider: any = null;
+
+if (isFirebaseConfigured) {
+  try {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    googleProvider = new GoogleAuthProvider();
+  } catch (error) {
+    console.error("Firebase initialization failed:", error);
+  }
+}
+
+export { 
+  auth, 
+  db, 
+  googleProvider, 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signInAnonymously, 
+  signOut,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc 
+};
