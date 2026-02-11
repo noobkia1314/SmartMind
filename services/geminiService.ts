@@ -3,16 +3,22 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfileStats } from "../types.ts";
 
 export class GeminiService {
-  // Always create a new GoogleGenAI instance inside method calls as per guidelines
   private getClient() {
-    const apiKey = process.env.API_KEY;
+    // Priority: 1. User-set key in localStorage 2. Environment variable
+    const localStorageKey = localStorage.getItem("GEMINI_API_KEY");
+    const envKey = process.env.API_KEY;
+    const apiKey = localStorageKey || envKey;
+
+    console.log("Gemini API Key source:", localStorageKey ? "localStorage" : (envKey ? "env var" : "missing"));
+    console.log("Gemini API Key value:", apiKey ? `${apiKey.slice(0, 10)}...` : "missing");
+
     if (!apiKey) {
-      console.warn("Gemini API Key is missing from process.env.API_KEY.");
+      console.warn("Gemini API Key is missing. Please set GEMINI_API_KEY in localStorage or provide process.env.API_KEY.");
     }
+
     return new GoogleGenAI({ apiKey: apiKey || "" });
   }
 
-  // Use gemini-3-pro-preview for complex structure generation and reasoning
   async generateGoalStructure(goal: string) {
     const ai = this.getClient();
     const prompt = `Generate a comprehensive personal development plan for the goal: "${goal}".
@@ -67,7 +73,6 @@ export class GeminiService {
           }
         }
       });
-      // Correctly access .text property directly
       const text = response.text;
       return JSON.parse(text?.trim() || '{}');
     } catch (error) {
@@ -76,7 +81,6 @@ export class GeminiService {
     }
   }
 
-  // Basic information retrieval, gemini-3-flash-preview is suitable
   async calculateNutrition(food: string) {
     const ai = this.getClient();
     const prompt = `Calculate estimated calories and protein for: "${food}".`;
@@ -96,7 +100,6 @@ export class GeminiService {
           }
         }
       });
-      // Correctly access .text property directly
       const text = response.text;
       return JSON.parse(text?.trim() || '{"calories": 0, "protein": 0}');
     } catch (error) {
@@ -105,7 +108,6 @@ export class GeminiService {
     }
   }
 
-  // Use gemini-3-pro-preview for complex multi-rule mathematical calculations
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
     const ai = this.getClient();
     const prompt = `Precisely calculate calories burned for: "${exercise}" volume: ${value} ${unit}.
@@ -127,7 +129,6 @@ export class GeminiService {
           }
         }
       });
-      // Correctly access .text property directly
       const text = response.text;
       const data = JSON.parse(text?.trim() || '{"caloriesBurned": 0}');
       return data;
@@ -137,7 +138,6 @@ export class GeminiService {
     }
   }
 
-  // Strategic coaching advice requires advanced reasoning, use gemini-3-pro-preview
   async getCoachAdvice(dataSummary: string) {
     const ai = this.getClient();
     const prompt = `As a professional high-performance AI coach, analyze this data summary:
@@ -148,7 +148,6 @@ export class GeminiService {
       model: 'gemini-3-pro-preview',
       contents: prompt,
     });
-    // Correctly access .text property directly
     return response.text;
   }
 }
