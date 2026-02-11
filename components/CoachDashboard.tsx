@@ -1,10 +1,9 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Utensils, Activity, BookOpen, DollarSign, 
   ChevronLeft, ChevronRight, Plus, 
   TrendingUp, ClipboardList, Lightbulb,
-  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame, ChevronDown, ChevronUp, User, Globe, Timer
+  Calendar as CalendarIcon, PieChart, Info, RefreshCw, Trash2, Clock, Dumbbell, Repeat, ArrowUpCircle, ArrowDownCircle, Wallet, AlertTriangle, Flame, ChevronDown, ChevronUp, User, Globe, Timer, Search, History, X
 } from 'lucide-react';
 import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEntry, UserProfileStats } from '../types';
 import MindMap from './MindMap';
@@ -28,6 +27,16 @@ const CURRENCIES = [
 ];
 
 const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateGoal }) => {
+  // Local entry states
+  const [foodInput, setFoodInput] = useState('');
+  const [exerciseInput, setExerciseInput] = useState<{name: string; value: number; unit: 'minutes' | 'seconds' | 'sets' | 'reps'}>({ 
+    name: '', 
+    value: 30, 
+    unit: 'minutes' 
+  });
+  const [financeInput, setFinanceInput] = useState({ type: 'expense' as 'income' | 'expense', category: '', amount: 0, description: '' });
+  const [readingInput, setReadingInput] = useState({ title: '', totalPages: 100, readToday: 0, summary: '' });
+
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [mindMapCollapsed, setMindMapCollapsed] = useState(true);
@@ -36,6 +45,28 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
   const [loading, setLoading] = useState(false);
   const [coachAdvice, setCoachAdvice] = useState<string>('');
   const [isServiceBusy, setIsServiceBusy] = useState(false);
+
+  // Food Autocomplete states
+  const [commonFoods, setCommonFoods] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('smartmind_common_foods');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showFoodSuggestions, setShowFoodSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const foodInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter suggestions
+  const filteredFoodSuggestions = useMemo(() => {
+    const query = foodInput.trim().toLowerCase();
+    if (!query) return [];
+    return commonFoods.filter(f => 
+      f.toLowerCase().includes(query) && f.toLowerCase() !== query
+    );
+  }, [commonFoods, foodInput]);
 
   // Currency State
   const [currency, setCurrency] = useState(() => {
@@ -57,16 +88,6 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     localStorage.setItem('smartmind_user_stats', JSON.stringify(userStats));
   }, [userStats]);
 
-  // Local entry states
-  const [foodInput, setFoodInput] = useState('');
-  const [exerciseInput, setExerciseInput] = useState<{name: string; value: number; unit: 'minutes' | 'seconds' | 'sets' | 'reps'}>({ 
-    name: '', 
-    value: 30, 
-    unit: 'minutes' 
-  });
-  const [financeInput, setFinanceInput] = useState({ type: 'expense' as 'income' | 'expense', category: '', amount: 0, description: '' });
-  const [readingInput, setReadingInput] = useState({ title: '', totalPages: 100, readToday: 0, summary: '' });
-
   const tasksForSelectedDate = useMemo(() => 
     goal.tasks.filter(t => t.date === selectedDate), 
   [goal.tasks, selectedDate]);
@@ -81,36 +102,78 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     onUpdateGoal({ ...goal, tasks: updatedTasks });
   };
 
+  const updateCommonFoods = (foodName: string) => {
+    const trimmed = foodName.trim();
+    if (!trimmed) return;
+    
+    setCommonFoods(prev => {
+      const filtered = prev.filter(f => f.toLowerCase() !== trimmed.toLowerCase());
+      const updated = [trimmed, ...filtered].slice(0, 50); // Keep max 50 items
+      localStorage.setItem('smartmind_common_foods', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const handleAddFood = async () => {
-    if (!foodInput) return;
+    if (!foodInput.trim()) return;
+    
+    const targetFood = foodInput.trim();
+    updateCommonFoods(targetFood);
+
     if (!gemini) {
       const newEntry: FoodEntry = {
         id: crypto.randomUUID(),
-        name: foodInput,
+        name: targetFood,
         calories: Math.floor(Math.random() * 500) + 100,
         protein: Math.floor(Math.random() * 30),
         date: selectedDate
       };
       onUpdateGoal({ ...goal, foodLogs: [...goal.foodLogs, newEntry] });
       setFoodInput('');
+      setShowFoodSuggestions(false);
       return;
     }
+
     setLoading(true);
     try {
-      const data = await gemini.calculateNutrition(foodInput);
+      const data = await gemini.calculateNutrition(targetFood);
       const newEntry: FoodEntry = {
         id: crypto.randomUUID(),
-        name: foodInput,
+        name: targetFood,
         calories: data.calories,
         protein: data.protein,
         date: selectedDate
       };
       onUpdateGoal({ ...goal, foodLogs: [...goal.foodLogs, newEntry] });
       setFoodInput('');
+      setShowFoodSuggestions(false);
     } catch (err) {
-        console.error(err);
+      console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (activeTab !== RecordType.DIET) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev < filteredFoodSuggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : -1));
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0) {
+        e.preventDefault();
+        setFoodInput(filteredFoodSuggestions[highlightedIndex]);
+        setHighlightedIndex(-1);
+        setShowFoodSuggestions(false);
+      } else {
+        handleAddFood();
+      }
+    } else if (e.key === 'Escape') {
+      setShowFoodSuggestions(false);
     }
   };
 
@@ -124,22 +187,18 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     }
 
     if (!gemini) {
-       // Manual MET Lookup for Fallback
-       let met = 5; // Default MET
+       let met = 5;
        const name = exerciseInput.name.toLowerCase();
        if (name.includes('跑')) met = 8;
        else if (name.includes('重') || name.includes('訓練') || name.includes('舉') || name.includes('蹲')) met = 7;
        else if (name.includes('走') || name.includes('步行')) met = 3.5;
        else if (name.includes('hiit') || name.includes('高強度')) met = 10;
-       else if (name.includes('游泳')) met = 7;
-       else if (name.includes('單車') || name.includes('騎')) met = 6;
 
-       // Unit conversion to hours
        let hours = 0;
        if (exerciseInput.unit === 'minutes') hours = exerciseInput.value / 60;
        else if (exerciseInput.unit === 'seconds') hours = exerciseInput.value / 3600;
-       else if (exerciseInput.unit === 'sets') hours = (exerciseInput.value * 1) / 60; // 1 min per set
-       else if (exerciseInput.unit === 'reps') hours = (exerciseInput.value * 5) / 3600; // 5 sec per rep
+       else if (exerciseInput.unit === 'sets') hours = (exerciseInput.value * 1) / 60;
+       else if (exerciseInput.unit === 'reps') hours = (exerciseInput.value * 5) / 3600;
        
        const caloriesBurned = Math.round(met * userStats.weight * hours);
 
@@ -155,6 +214,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
       setExerciseInput({ ...exerciseInput, name: '', value: 30, unit: 'minutes' });
       return;
     }
+
     setLoading(true);
     try {
       const data = await gemini.calculateExercise(exerciseInput.name, exerciseInput.value, exerciseInput.unit, userStats);
@@ -220,7 +280,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
   const getAdvice = async () => {
     if (!gemini) {
-      setCoachAdvice("### 訪客模式建議\n- 您目前正在體驗示範功能。\n- **設定 API Key** 後，AI 才能根據您的真實數據提供針對性建議。\n- 系統已檢測到您有 7 個初始任務待完成。加油！");
+      setCoachAdvice("### 系統訊息\n- AI 教練暫時無法連線。請檢查後端配置。");
       return;
     }
     setLoading(true);
@@ -232,7 +292,7 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
     } catch (err: any) {
       const is503 = err?.status === 503 || err?.message?.includes('503') || err?.message?.includes('Service Unavailable') || err?.message?.includes('overloaded');
       if (is503) setIsServiceBusy(true);
-      else setCoachAdvice("連線失敗，請檢查 API Key。");
+      else setCoachAdvice("連線失敗，請檢查 API 設定。");
     } finally {
       setLoading(false);
     }
@@ -300,18 +360,11 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
 
   return (
     <div className="flex flex-col gap-6 max-w-6xl mx-auto pb-24 md:pb-8">
-      {goal.isDemo && (
-        <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl flex items-center gap-3 text-rose-400">
-          <AlertTriangle size={20} className="shrink-0" />
-          <p className="text-sm font-bold">這是示範目標。由於未設定 API Key，部分 AI 功能（如精確卡片計算與教練深度建議）受限。</p>
-        </div>
-      )}
-
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-white mb-1">{goal.title}</h1>
           <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">
-            {goal.isDemo ? '示範模式' : `啟動日期：${new Date(goal.startDate).toLocaleDateString()}`}
+            啟動日期：{new Date(goal.startDate).toLocaleDateString()}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -342,9 +395,9 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                 日曆
               </h3>
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2">
+            <div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs">
               {['日', '一', '二', '三', '四', '五', '六'].map(d => (
-                <span key={d} className="text-[10px] font-black text-slate-500">{d}</span>
+                <span key={d} className="text-[10px] font-black text-slate-500 uppercase">{d}</span>
               ))}
               {Array.from({ length: daysInMonth.firstDay }).map((_, i) => <div key={i} />)}
               {Array.from({ length: daysInMonth.days }).map((_, i) => {
@@ -444,23 +497,90 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
             <div className="p-6">
                {activeTab === RecordType.DIET && (
                 <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="食物名稱 (例如: '雞胸肉')"
-                      value={foodInput}
-                      onChange={e => setFoodInput(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
-                    <button onClick={handleAddFood} className="bg-indigo-600 text-white px-8 rounded-2xl font-black py-3"><Plus size={20} /></button>
-                  </div>
-                  <div className="space-y-2">
-                    {goal.foodLogs.filter(f => f.date === selectedDate).map(item => (
-                      <div key={item.id} className="flex justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
-                        <span className="font-bold text-white">{item.name}</span>
-                        <span className="text-xs text-slate-500 font-bold">{item.calories} kcal</span>
+                  <div className="relative">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex-1 relative">
+                        <input 
+                          ref={foodInputRef}
+                          type="text" 
+                          placeholder="食物名稱 (例如: '雞胸肉')"
+                          value={foodInput}
+                          onChange={e => {
+                            setFoodInput(e.target.value);
+                            setHighlightedIndex(-1);
+                            setShowFoodSuggestions(true);
+                          }}
+                          onKeyDown={handleKeyDown}
+                          onFocus={() => setShowFoodSuggestions(true)}
+                          onBlur={() => setTimeout(() => setShowFoodSuggestions(false), 200)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none pr-10"
+                        />
+                        <Search size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        
+                        {/* Food Autocomplete Dropdown */}
+                        {showFoodSuggestions && filteredFoodSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                            <div className="p-2 border-b border-slate-800 flex items-center justify-between">
+                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 flex items-center gap-1">
+                                <History size={10} /> 常用建議
+                              </span>
+                            </div>
+                            <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                              {filteredFoodSuggestions.map((suggestion, idx) => (
+                                <button
+                                  key={idx}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault(); // Prevent input blur
+                                    setFoodInput(suggestion);
+                                    setShowFoodSuggestions(false);
+                                  }}
+                                  onMouseEnter={() => setHighlightedIndex(idx)}
+                                  className={`w-full text-left px-4 py-3 text-sm font-bold flex items-center justify-between transition-colors ${
+                                    highlightedIndex === idx ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <History size={14} className="text-slate-600" />
+                                    <span>{suggestion}</span>
+                                  </div>
+                                  <Plus size={14} className="opacity-0 group-hover:opacity-100 text-indigo-400" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                      <button 
+                        onClick={handleAddFood} 
+                        disabled={loading || !foodInput.trim()}
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white px-8 rounded-2xl font-black py-3 shadow-lg transition-all active:scale-95 flex items-center justify-center"
+                      >
+                        {loading ? <RefreshCw size={20} className="animate-spin" /> : <Plus size={20} />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">今日攝取清單</h4>
+                    {goal.foodLogs.filter(f => f.date === selectedDate).length === 0 ? (
+                       <div className="p-8 border-2 border-dashed border-slate-800 rounded-2xl text-center">
+                        <p className="text-slate-600 text-sm">尚未記錄今日飲食</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {goal.foodLogs.filter(f => f.date === selectedDate).map(item => (
+                          <div key={item.id} className="flex justify-between items-center p-4 bg-slate-950/50 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors">
+                            <span className="font-bold text-white">{item.name}</span>
+                            <div className="text-right flex items-center gap-4">
+                              <div>
+                                <span className="text-sm font-black text-indigo-400 block">{item.calories} kcal</span>
+                                <span className="text-[9px] text-slate-600 font-bold uppercase">{item.protein}g 蛋白質</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
