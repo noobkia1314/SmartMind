@@ -1,41 +1,22 @@
 
 import { initializeApp, getApp, getApps } from 'firebase/app';
-// Fix: Use namespace import for auth to resolve "no exported member" errors in certain module resolution contexts
-import * as authModule from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc 
-} from 'firebase/firestore';
+// Using namespace imports to avoid "no exported member" errors in some environments
+import * as firebaseAuth from 'firebase/auth';
+import * as firebaseFirestore from 'firebase/firestore';
 
-// Fix: Destructure from authModule to fix import errors while keeping existing logic intact
-const { 
-  getAuth, 
-  GoogleAuthProvider, 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  signInAnonymously, 
-  signOut 
-} = authModule;
-
-// Helper function to safely access environment variables
-const getEnvVar = (key: string): string | undefined => {
+// 安全地獲取環境變數
+const getEnvVar = (key: string): string => {
   try {
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-      return (import.meta as any).env[key];
+      return (import.meta as any).env[key] || "";
     }
     if (typeof process !== 'undefined' && process.env) {
-      return (process.env as any)[key];
+      return (process.env as any)[key] || "";
     }
-  } catch (e) {
-    // Silent fail
-  }
-  return undefined;
+  } catch (e) {}
+  return "";
 };
 
-// Initialize Firebase configuration from environment variables
 const firebaseConfig = {
   apiKey: getEnvVar('VITE_FIREBASE_API_KEY'),
   authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
@@ -45,7 +26,7 @@ const firebaseConfig = {
   appId: getEnvVar('VITE_FIREBASE_APP_ID')
 };
 
-// Check if Firebase configuration is complete
+// 即使配置不完全也嘗試初始化，以保證 auth/db 物件存在（雖然 API 調用會失敗，但不會導致前端 crash）
 export const isFirebaseConfigured = !!firebaseConfig.apiKey;
 
 let app;
@@ -53,22 +34,27 @@ let auth: any = null;
 let db: any = null;
 let googleProvider: any = null;
 
-if (isFirebaseConfigured) {
-  try {
-    // Initialize Firebase app or retrieve the existing one
-    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-    if (app) {
-      auth = getAuth(app);
-      db = getFirestore(app);
-      googleProvider = new GoogleAuthProvider();
-      console.log("Firebase auth initialized");
-    }
-  } catch (error) {
-    console.error("Firebase initialization failed:", error);
-  }
-} else {
-  console.warn("Firebase configuration is missing or incomplete. Cloud Sync features will be unavailable.");
+// Initialize Firebase services using namespace methods to avoid resolution issues
+try {
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  // Accessing methods through the namespace to satisfy the compiler
+  auth = firebaseAuth.getAuth(app);
+  db = firebaseFirestore.getFirestore(app);
+  googleProvider = new firebaseAuth.GoogleAuthProvider();
+} catch (error) {
+  console.warn("Firebase initialization partial warning:", error);
 }
+
+// Extracting methods from the namespace for named re-exporting
+const onAuthStateChanged = firebaseAuth.onAuthStateChanged;
+const signInWithPopup = firebaseAuth.signInWithPopup;
+const signInAnonymously = firebaseAuth.signInAnonymously;
+const signOut = firebaseAuth.signOut;
+
+const doc = firebaseFirestore.doc;
+const getDoc = firebaseFirestore.getDoc;
+const setDoc = firebaseFirestore.setDoc;
+const updateDoc = firebaseFirestore.updateDoc;
 
 export { 
   auth, 
