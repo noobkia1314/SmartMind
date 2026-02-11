@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Sidebar from './components/Sidebar';
-import CoachDashboard from './components/CoachDashboard';
-import GoalList from './components/GoalList';
-import { AppState, UserGoal, UserProfile } from './types';
-import { GeminiService } from './services/geminiService';
+import Sidebar from './components/Sidebar.tsx';
+import CoachDashboard from './components/CoachDashboard.tsx';
+import GoalList from './components/GoalList.tsx';
+import { AppState, UserGoal, UserProfile } from './types.ts';
+import { GeminiService } from './services/geminiService.ts';
 import { 
   auth, 
   db, 
@@ -18,7 +18,7 @@ import {
   getDoc,
   setDoc,
   updateDoc 
-} from './services/firebase';
+} from './services/firebase.ts';
 import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, LogIn, ShieldCheck } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
