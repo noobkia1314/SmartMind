@@ -5,7 +5,11 @@ import { UserProfileStats } from "../types.ts";
 export class GeminiService {
   // Always create a new GoogleGenAI instance inside method calls as per guidelines
   private getClient() {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.warn("Gemini API Key is missing from process.env.API_KEY.");
+    }
+    return new GoogleGenAI({ apiKey: apiKey || "" });
   }
 
   // Use gemini-3-pro-preview for complex structure generation and reasoning
@@ -105,23 +109,7 @@ export class GeminiService {
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
     const ai = this.getClient();
     const prompt = `Precisely calculate calories burned for: "${exercise}" volume: ${value} ${unit}.
-    
-    User Physical Stats:
-    - Age: ${stats.age}
-    - Gender: ${stats.gender}
-    - Height: ${stats.height}cm
-    - Weight: ${stats.weight}kg
-    - Base Activity Level: ${stats.activityLevel}
-    
-    CALCULATION RULES:
-    1. Identify the MET (Metabolic Equivalent) for "${exercise}".
-    2. If unit is 'minutes', hours = ${value}/60.
-    3. If unit is 'seconds', hours = ${value}/3600.
-    4. If unit is 'sets', assume 1 min per set, hours = ${value}/60.
-    5. If unit is 'reps', assume 5 sec per rep, hours = (${value} * 5)/3600.
-    6. Formula: Cal = MET * ${stats.weight} * hours.
-    7. Adjust result based on Age and Gender BMR factors (Harris-Benedict).
-    
+    User Physical Stats: Age ${stats.age}, ${stats.gender}, ${stats.height}cm, ${stats.weight}kg, Activity ${stats.activityLevel}.
     Return the result as a single integer for "caloriesBurned".`;
     
     try {
@@ -154,12 +142,7 @@ export class GeminiService {
     const ai = this.getClient();
     const prompt = `As a professional high-performance AI coach, analyze this data summary:
     ${dataSummary}
-    
-    Provide strategic advice in Markdown format. Use:
-    - Clear headings
-    - Bullet points for actionable items
-    - **Bold** for highlights
-    Keep it encouraging but firm.`;
+    Provide strategic advice in Markdown format with headings, bullet points, and highlights.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
