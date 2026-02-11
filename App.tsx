@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import CoachDashboard from './components/CoachDashboard.tsx';
 import GoalList from './components/GoalList.tsx';
+import ApiKeyManager from './components/ApiKeyManager.tsx';
 import { AppState, UserGoal, UserProfile } from './types.ts';
 import { GeminiService } from './services/geminiService.ts';
 import { 
@@ -48,6 +49,9 @@ const App: React.FC = () => {
   const [isApiBusy, setIsApiBusy] = useState(false);
 
   const gemini = useMemo(() => new GeminiService(), []);
+
+  // Check if any API key is available
+  const hasApiKey = !!(localStorage.getItem("GEMINI_API_KEY") || process.env.API_KEY);
 
   useEffect(() => {
     if (!auth) {
@@ -153,15 +157,16 @@ const App: React.FC = () => {
   const handleStartGoal = async () => {
     if (!goalInput.trim() || isLoading) return;
     
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      setError("未偵測到 Gemini API Key。請確認環境變數已正確設定。");
+    if (!hasApiKey) {
+      setError("請先在右下方設定您的 Gemini API Key 以啟動教練模式。");
       return;
     }
 
     setIsLoading(true);
     setError(null);
     setIsApiBusy(false);
+
+    console.log("Generate button clicked, key available: " + hasApiKey);
 
     try {
       const goalData = await gemini.generateGoalStructure(goalInput);
@@ -195,7 +200,7 @@ const App: React.FC = () => {
         setIsApiBusy(true);
         setError("AI 伺服器目前忙碌中（高需求）。這是暫時現象，請點擊下方按鈕重試。");
       } else {
-        setError("生成藍圖時發生錯誤，請檢查網路連線或稍後再試。");
+        setError("生成藍圖時發生錯誤。請檢查您的 API Key 是否正確且具備權限。");
       }
     } finally {
       setIsLoading(false);
@@ -213,7 +218,7 @@ const App: React.FC = () => {
   const activeGoal = state.goals.find(g => g.id === state.activeGoalId);
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-200 selection:bg-indigo-500/30">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-200 selection:bg-indigo-500/30 relative">
       <Sidebar 
         user={state.user}
         onLogin={handleGoogleLogin}
@@ -230,9 +235,9 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
-             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${process.env.API_KEY ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
                <Key size={12} />
-               {process.env.API_KEY ? 'Gemini API: 已連線' : 'Gemini API: 未設定'}
+               {hasApiKey ? 'Gemini API: 已就緒' : 'Gemini API: 需要 Key'}
              </div>
             {state.user.isLoggedIn && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-800">
@@ -278,6 +283,13 @@ const App: React.FC = () => {
                   disabled={isLoading}
                 />
 
+                {!hasApiKey && (
+                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs font-bold flex items-center gap-3 animate-pulse">
+                    <AlertCircle size={18} />
+                    請先在右下角輸入您的 Gemini API Key 以啟動教練。
+                  </div>
+                )}
+
                 {error && (
                   <div className={`p-6 rounded-3xl border animate-in slide-in-from-top-2 duration-300 ${isApiBusy ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
                     <div className="flex items-start gap-4">
@@ -313,7 +325,7 @@ const App: React.FC = () => {
                 ) : (
                   <button 
                     onClick={handleStartGoal}
-                    disabled={isLoading || !goalInput.trim()}
+                    disabled={isLoading || !goalInput.trim() || !hasApiKey}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-5 rounded-3xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-4 group"
                   >
                     {isLoading ? (
@@ -349,6 +361,9 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Floating API Key Manager */}
+      <ApiKeyManager />
     </div>
   );
 };
