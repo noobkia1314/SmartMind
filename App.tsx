@@ -18,7 +18,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase';
-import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, ShieldAlert, LogIn } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, LogIn } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -45,13 +45,12 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isServiceBusy, setIsServiceBusy] = useState(false);
-  const [showConfigWarning, setShowConfigWarning] = useState(false);
 
   const gemini = useMemo(() => new GeminiService(), []);
 
   // Firebase Auth State Listener
   useEffect(() => {
-    if (!isFirebaseConfigured || !auth) {
+    if (!auth) {
       setAuthLoading(false);
       return;
     }
@@ -59,7 +58,6 @@ const App: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
       setAuthLoading(true);
       if (user) {
-        // Authenticated user
         const userProfile: UserProfile = {
           uid: user.uid,
           name: user.displayName || 'Explorer',
@@ -68,14 +66,12 @@ const App: React.FC = () => {
           provider: 'google'
         };
 
-        // Fetch data from Firestore
         let savedGoals: UserGoal[] = [];
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             savedGoals = userDoc.data().goals || [];
           } else {
-            // New user, create document
             await setDoc(doc(db, 'users', user.uid), {
               name: userProfile.name,
               email: user.email,
@@ -92,7 +88,6 @@ const App: React.FC = () => {
           goals: savedGoals.length > 0 ? savedGoals : prev.goals
         }));
       } else {
-        // Not authenticated, stay in guest mode or revert
         setState(prev => ({
           ...prev,
           user: prev.user.provider === 'google' ? INITIAL_USER : prev.user
@@ -104,20 +99,7 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Firebase Config Diagnostic Logs
-  useEffect(() => {
-    const env = (import.meta as any).env;
-    console.log("--- Firebase Diagnostics ---");
-    console.log("VITE_FIREBASE_API_KEY:", env?.VITE_FIREBASE_API_KEY ? "Present" : "Missing");
-    console.log("Full Firebase config status:", isFirebaseConfigured ? "Loaded Successfully" : "Missing Configuration");
-    console.log("----------------------------");
-    
-    if (!isFirebaseConfigured) {
-      setShowConfigWarning(true);
-    }
-  }, []);
-
-  // Sync state to Firestore for Google users, or Local Storage for Guest
+  // Sync state to Firestore or Local Storage
   useEffect(() => {
     if (state.user.isLoggedIn && state.user.provider === 'google' && state.user.uid) {
       const syncToFirestore = async () => {
@@ -136,16 +118,14 @@ const App: React.FC = () => {
   }, [state]);
 
   const handleGoogleLogin = async () => {
-    if (!isFirebaseConfigured) {
-      setError("Firebase 未配置，無法使用 Google 登入。");
-      return;
-    }
+    console.log("Google login button clicked");
     setError(null);
     try {
+      if (!auth) throw new Error("Firebase auth not initialized");
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
       console.error("Login failed:", err);
-      setError("登入失敗，請檢查網路或允許彈窗。");
+      setError("登入失敗，請稍後再試");
     }
   };
 
@@ -220,7 +200,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       const is503 = err?.status === 503 || err?.message?.includes('503') || err?.message?.includes('overloaded');
       if (is503) setIsServiceBusy(true);
-      else setError("無法啟動。請確保 API 設定正確。");
+      else setError("生成失敗，請檢查 API 設定或稍後再試。");
     } finally {
       setIsLoading(false);
     }
@@ -243,15 +223,13 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
           <RefreshCw className="w-10 h-10 text-indigo-500 animate-spin mx-auto" />
-          <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">正在載入...</p>
+          <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">正在連線 SmartMind...</p>
         </div>
       </div>
     );
   }
 
   const activeGoal = state.goals.find(g => g.id === state.activeGoalId);
-
-  console.log("Google login button rendered check:", !state.user.isLoggedIn);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-200">
@@ -264,26 +242,17 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen overflow-x-hidden pb-32">
-        {showConfigWarning && (
-          <div className="max-w-4xl mx-auto mb-6 p-4 bg-rose-500/10 border border-rose-500/50 rounded-2xl flex items-center gap-3 text-rose-400 animate-pulse">
-            <ShieldAlert className="shrink-0" />
-            <div className="text-sm font-black uppercase tracking-tight">
-              Firebase 配置未設定，請檢查 Vercel 環境變數 (VITE_FIREBASE_*)
-            </div>
-          </div>
-        )}
-
         <div className="max-w-4xl mx-auto mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div className="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-500">
-            <CheckCircle size={20} className="shrink-0" />
+          <div className={`flex items-center gap-3 p-3 border rounded-2xl transition-all ${state.user.provider === 'google' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+            {state.user.provider === 'google' ? <CheckCircle size={20} className="shrink-0" /> : <AlertCircle size={20} className="shrink-0" />}
             <p className="text-sm font-bold">
-              {state.user.provider === 'google' ? '雲端同步已啟動' : 'Guest Mode: 離線儲存已啟動'}
+              {state.user.provider === 'google' ? '雲端同步：已啟動' : '訪客模式：資料僅存於本機'}
             </p>
           </div>
           
           <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-2xl">
             {state.user.photoURL ? (
-              <img src={state.user.photoURL} alt="" className="w-6 h-6 rounded-full" />
+              <img src={state.user.photoURL} alt="" className="w-6 h-6 rounded-full border border-indigo-500/30" />
             ) : (
               <UserIcon size={16} className="text-slate-500 ml-2" />
             )}
@@ -301,7 +270,7 @@ const App: React.FC = () => {
         {activeView === 'home' && (
           <div className="max-w-4xl mx-auto py-4 space-y-12">
             {state.goals.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center gap-2 px-2">
                   <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
                   <h2 className="text-xl font-black text-white uppercase tracking-widest">任務核心庫</h2>
@@ -314,7 +283,7 @@ const App: React.FC = () => {
               <div className="inline-flex items-center justify-center p-3 bg-indigo-500/10 rounded-2xl">
                 <BrainCircuit className="text-indigo-500 w-12 h-12" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+              <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
                 Architect Your Best Self with <span className="text-indigo-500">SmartMind</span>
               </h1>
               <p className="text-lg text-slate-400 max-w-2xl mx-auto italic">
@@ -333,26 +302,19 @@ const App: React.FC = () => {
                   <h2 className="text-2xl font-bold text-white">啟動新目標</h2>
                 </div>
 
-                {!state.user.isLoggedIn && (
-                  <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-xl flex items-center gap-3 text-indigo-400">
-                    <AlertCircle size={20} />
-                    <p className="text-sm font-bold">登入後即可雲端備份您的目標與進度。</p>
-                  </div>
-                )}
-
                 <textarea
                   value={goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
                   disabled={!state.user.isLoggedIn}
-                  placeholder={state.user.isLoggedIn ? "例如：'在 6 個月內精通 TypeScript 並啟動 SaaS 業務'..." : "請先登入或選擇訪客模式..."}
-                  className={`w-full bg-slate-950 border border-slate-700 rounded-2xl p-6 text-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] ${!state.user.isLoggedIn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  placeholder={state.user.isLoggedIn ? "例如：'在 6 個月內學會 TypeScript 並建立一個 SaaS 產品'..." : "請先登入或選擇訪客模式..."}
+                  className={`w-full bg-slate-950 border border-slate-700 rounded-2xl p-6 text-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] transition-all ${!state.user.isLoggedIn ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-600'}`}
                 />
 
                 {!state.user.isLoggedIn ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button 
                       onClick={handleGoogleLogin}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl text-lg font-black transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3"
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl text-lg font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-95 flex items-center justify-center gap-3"
                     >
                       <LogIn size={20} />
                       Google 登入
@@ -374,7 +336,7 @@ const App: React.FC = () => {
                     )}
 
                     {error && (
-                      <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-xl flex items-center gap-2 text-xs font-bold">
+                      <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-xl flex items-center gap-2 text-xs font-bold animate-in shake duration-300">
                         <AlertCircle size={14} />
                         {error}
                       </div>
@@ -383,10 +345,10 @@ const App: React.FC = () => {
                     <button 
                       onClick={handleStartGoal}
                       disabled={isLoading}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white py-4 rounded-2xl text-xl font-black transition-all shadow-xl active:scale-[0.98] flex items-center justify-center gap-3"
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white py-4 rounded-2xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-3"
                     >
                       {isLoading ? (
-                        <><RefreshCw className="animate-spin" /> 載入中...</>
+                        <><RefreshCw className="animate-spin" /> 藍圖規劃中...</>
                       ) : (
                         <>
                           <Rocket size={24} />
@@ -433,11 +395,13 @@ const App: React.FC = () => {
                     )}
                     <div>
                       <p className="font-bold text-white leading-tight">{state.user.name}</p>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest">{state.user.provider || '訪客模式'}</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+                        {state.user.provider === 'google' ? 'Google 雲端帳戶' : '本機訪客模式'}
+                      </p>
                     </div>
                   </div>
                   {state.user.isLoggedIn && (
-                    <button onClick={handleLogout} className="text-rose-500 text-xs font-black uppercase tracking-widest hover:text-rose-400 transition-colors">登出 / 結束</button>
+                    <button onClick={handleLogout} className="text-rose-500 text-xs font-black uppercase tracking-widest hover:text-rose-400 transition-colors px-3 py-1 rounded-lg hover:bg-rose-500/10">登出</button>
                   )}
                 </div>
               </div>
@@ -445,18 +409,20 @@ const App: React.FC = () => {
               {!state.user.isLoggedIn && (
                 <button 
                   onClick={handleGoogleLogin}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/10"
                 >
                   <LogIn size={18} /> Google 登入同步
                 </button>
               )}
 
-              <button 
-                onClick={() => { if(confirm('確定清除本地快取？此操作不會刪除雲端資料。')) { localStorage.removeItem('smartmind_guest_state'); window.location.reload(); } }}
-                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 px-6 py-4 rounded-xl text-sm font-bold transition-all border border-slate-700"
-              >
-                清除本地快取
-              </button>
+              <div className="pt-4 border-t border-slate-800">
+                <button 
+                  onClick={() => { if(confirm('確定清除本地快取？此操作不會刪除雲端資料。')) { localStorage.removeItem('smartmind_guest_state'); window.location.reload(); } }}
+                  className="w-full bg-slate-800 hover:bg-rose-500/10 hover:text-rose-500 text-slate-400 px-6 py-4 rounded-xl text-sm font-bold transition-all border border-slate-700"
+                >
+                  重設本地快取
+                </button>
+              </div>
             </div>
           </div>
         )}
