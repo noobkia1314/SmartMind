@@ -48,10 +48,23 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isApiBusy, setIsApiBusy] = useState(false);
 
+  // Reactive API key state to update UI instantly when saved
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
+  
   const gemini = useMemo(() => new GeminiService(), []);
 
-  // Check if any API key is available
-  const hasApiKey = !!(localStorage.getItem("GEMINI_API_KEY") || process.env.API_KEY);
+  // Check if any valid API key is available (either from localStorage or process.env)
+  const hasApiKey = useMemo(() => {
+    const envKey = (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const finalKey = apiKey || envKey;
+    return !!finalKey && finalKey.length > 10;
+  }, [apiKey]);
+
+  useEffect(() => {
+    const envKey = (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const currentKey = apiKey || envKey;
+    console.log("Key loaded on mount: " + (currentKey ? currentKey.slice(0, 10) + "..." : "missing"));
+  }, []);
 
   useEffect(() => {
     if (!auth) {
@@ -158,15 +171,13 @@ const App: React.FC = () => {
     if (!goalInput.trim() || isLoading) return;
     
     if (!hasApiKey) {
-      setError("請先在右下方設定您的 Gemini API Key 以啟動教練模式。");
+      setError("請先在右下角設定您的 Gemini API Key 以啟動教練模式。");
       return;
     }
 
     setIsLoading(true);
     setError(null);
     setIsApiBusy(false);
-
-    console.log("Generate button clicked, key available: " + hasApiKey);
 
     try {
       const goalData = await gemini.generateGoalStructure(goalInput);
@@ -198,9 +209,9 @@ const App: React.FC = () => {
       const errorMessage = err?.message || "";
       if (errorMessage.includes("503") || errorMessage.includes("overloaded") || errorMessage.includes("busy")) {
         setIsApiBusy(true);
-        setError("AI 伺服器目前忙碌中（高需求）。這是暫時現象，請點擊下方按鈕重試。");
+        setError("AI 伺服器目前忙碌中（高需求）。這是暫時現象，請點擊下方重試。");
       } else {
-        setError("生成藍圖時發生錯誤。請檢查您的 API Key 是否正確且具備權限。");
+        setError("生成藍圖時發生錯誤。請檢查您的 API Key 是否正確。");
       }
     } finally {
       setIsLoading(false);
@@ -235,7 +246,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
-             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
+             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
                <Key size={12} />
                {hasApiKey ? 'Gemini API: 已就緒' : 'Gemini API: 需要 Key'}
              </div>
@@ -278,15 +289,15 @@ const App: React.FC = () => {
                 <textarea
                   value={goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
-                  placeholder="例如：'在三個月內減重 5 公斤並跑完一次半馬'..."
+                  placeholder="例如：'在三個月內學會德語基礎'..."
                   className="w-full bg-slate-950 border-2 border-slate-800 rounded-3xl p-6 text-lg text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none min-h-[160px] transition-all placeholder:text-slate-600"
                   disabled={isLoading}
                 />
 
                 {!hasApiKey && (
-                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs font-bold flex items-center gap-3 animate-pulse">
-                    <AlertCircle size={18} />
-                    請先在右下角輸入您的 Gemini API Key 以啟動教練。
+                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
+                    <AlertCircle size={18} className="shrink-0" />
+                    請先在右下角輸入您的 Gemini API Key 以啟動 AI 教練功能。
                   </div>
                 )}
 
@@ -299,7 +310,7 @@ const App: React.FC = () => {
                       <div className="flex-1 space-y-3">
                         <p className="font-bold text-sm leading-relaxed">
                           {isApiBusy 
-                            ? "AI 伺服器目前忙碌中（高需求），這是暫時現象。請點擊下方重試。" 
+                            ? "AI 伺服器忙碌中（高需求）。請稍候並點擊下方重試。" 
                             : error}
                         </p>
                         <button 
@@ -363,7 +374,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Floating API Key Manager */}
-      <ApiKeyManager />
+      <ApiKeyManager onKeyUpdate={(newKey) => setApiKey(newKey)} />
     </div>
   );
 };
