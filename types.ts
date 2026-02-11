@@ -7,6 +7,14 @@ export enum RecordType {
   TASK = 'TASK'
 }
 
+export interface UserProfileStats {
+  age: number;
+  gender: 'male' | 'female' | 'other';
+  height: number;
+  weight: number;
+  activityLevel: 'sedentary' | 'light' | 'moderate' | 'heavy' | 'athlete';
+}
+
 export interface Task {
   id: string;
   title: string;
