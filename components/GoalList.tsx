@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Target, ChevronDown, ChevronUp, Calendar, Rocket, Star, Info, Hash } from 'lucide-react';
-import { UserGoal } from '../types';
+import { UserGoal } from '../types.ts';
 
 interface GoalListProps {
   goals: UserGoal[];
