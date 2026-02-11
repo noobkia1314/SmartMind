@@ -1,22 +1,14 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { UserProfileStats } from "../types";
-
-const getApiKey = () => {
-  const storedKey = localStorage.getItem('GEMINI_API_KEY');
-  const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
-  return storedKey || envKey || '';
-};
+import { UserProfileStats } from "../types.ts";
 
 export class GeminiService {
+  // Always create a new GoogleGenAI instance inside method calls as per guidelines
   private getClient() {
-    const key = getApiKey();
-    if (!key) {
-      throw new Error("Gemini API Key is missing.");
-    }
-    return new GoogleGenAI({ apiKey: key });
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
+  // Use gemini-3-pro-preview for complex structure generation and reasoning
   async generateGoalStructure(goal: string) {
     const ai = this.getClient();
     const prompt = `Generate a comprehensive personal development plan for the goal: "${goal}".
@@ -32,7 +24,7 @@ export class GeminiService {
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3-pro-preview',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -71,13 +63,16 @@ export class GeminiService {
           }
         }
       });
-      return JSON.parse(response.text || '{}');
+      // Correctly access .text property directly
+      const text = response.text;
+      return JSON.parse(text?.trim() || '{}');
     } catch (error) {
       console.error("Gemini Error:", error);
       throw error;
     }
   }
 
+  // Basic information retrieval, gemini-3-flash-preview is suitable
   async calculateNutrition(food: string) {
     const ai = this.getClient();
     const prompt = `Calculate estimated calories and protein for: "${food}".`;
@@ -86,7 +81,7 @@ export class GeminiService {
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: { 
-          responseMimeType: 'application/json',
+          responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -97,13 +92,16 @@ export class GeminiService {
           }
         }
       });
-      return JSON.parse(response.text || '{"calories": 0, "protein": 0}');
+      // Correctly access .text property directly
+      const text = response.text;
+      return JSON.parse(text?.trim() || '{"calories": 0, "protein": 0}');
     } catch (error) {
       console.error("Nutrition calculation failed:", error);
       return { calories: 0, protein: 0 };
     }
   }
 
+  // Use gemini-3-pro-preview for complex multi-rule mathematical calculations
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
     const ai = this.getClient();
     const prompt = `Precisely calculate calories burned for: "${exercise}" volume: ${value} ${unit}.
@@ -128,10 +126,10 @@ export class GeminiService {
     
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3-pro-preview',
         contents: prompt,
         config: { 
-          responseMimeType: 'application/json',
+          responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -141,7 +139,9 @@ export class GeminiService {
           }
         }
       });
-      const data = JSON.parse(response.text || '{"caloriesBurned": 0}');
+      // Correctly access .text property directly
+      const text = response.text;
+      const data = JSON.parse(text?.trim() || '{"caloriesBurned": 0}');
       return data;
     } catch (error) {
       console.error("Exercise calculation failed:", error);
@@ -149,6 +149,7 @@ export class GeminiService {
     }
   }
 
+  // Strategic coaching advice requires advanced reasoning, use gemini-3-pro-preview
   async getCoachAdvice(dataSummary: string) {
     const ai = this.getClient();
     const prompt = `As a professional high-performance AI coach, analyze this data summary:
@@ -164,6 +165,7 @@ export class GeminiService {
       model: 'gemini-3-pro-preview',
       contents: prompt,
     });
+    // Correctly access .text property directly
     return response.text;
   }
 }
