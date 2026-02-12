@@ -11,10 +11,9 @@ export class GeminiService {
       throw new Error("請先設定 Grok API Key（原 Gemini 欄位）");
     }
 
-    console.log("Using Grok API with key: " + apiKey.slice(0, 10) + "...");
-    console.log("Sending request to Grok with model: grok-2");
+    console.log("Calling Grok with model: grok-beta, key: " + apiKey.slice(0, 10) + "...");
 
-    const simplifiedSystem = "你是 SmartMind AI 教練，用中文回覆結構化藍圖與每日任務。";
+    const simplifiedSystem = "你是 SmartMind AI 教練，用中文生成結構化目標藍圖、每日任務與 mind map。";
     const finalSystem = jsonMode 
       ? `${simplifiedSystem} 你必須僅回傳純 JSON 格式，不要包含 Markdown 代碼塊標籤。` 
       : simplifiedSystem;
@@ -26,19 +25,19 @@ export class GeminiService {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "grok-2", // Updated to latest model name
+        model: "grok-beta", // Changed from grok-2 to grok-beta for better stability
         messages: [
           { role: "system", content: finalSystem },
           { role: "user", content: prompt }
         ],
-        temperature: 0.8,
+        temperature: 0.7,
         max_tokens: 1500
       })
     });
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.log("Grok error status: " + response.status + ", body: " + errorBody);
+      console.log("Grok error: " + response.status + ", " + errorBody);
 
       if (response.status === 429) {
         throw new Error("Grok API 額度暫時用完，請稍後再試");
@@ -47,7 +46,7 @@ export class GeminiService {
         throw new Error("API key 無效，請檢查並重新輸入");
       }
       if (response.status === 400) {
-        throw new Error(`請求參數錯誤 (400)。請確認 API Key 權限或稍後重試。`);
+        throw new Error(`請求參數錯誤 (400)。請確認模型名稱或 API Key 權限。詳情: ${errorBody}`);
       }
       throw new Error(`生成失敗，請檢查網路 (Status: ${response.status})`);
     }
