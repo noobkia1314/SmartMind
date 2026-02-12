@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import CoachDashboard from './components/CoachDashboard.tsx';
 import GoalList from './components/GoalList.tsx';
-import ApiKeyManager from './components/ApiKeyManager.tsx';
 import { AppState, UserGoal, UserProfile } from './types.ts';
 import { GeminiService } from './services/geminiService.ts';
 import { 
@@ -20,7 +19,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase.ts';
-import { Target, BrainCircuit, Rocket, RefreshCw, CheckCircle, PlusCircle, UserCircle, AlertCircle, User as UserIcon, LogIn, ShieldCheck, Timer, Key } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -46,25 +45,11 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isApiBusy, setIsApiBusy] = useState(false);
 
-  // Reactive API key state to update UI instantly when saved
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
-  
   const gemini = useMemo(() => new GeminiService(), []);
 
-  // Check if any valid API key is available (either from localStorage or process.env)
-  const hasApiKey = useMemo(() => {
-    const envKey = (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-    const finalKey = apiKey || envKey;
-    return !!finalKey && finalKey.length > 10;
-  }, [apiKey]);
-
-  useEffect(() => {
-    const envKey = (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-    const currentKey = apiKey || envKey;
-    console.log("Key loaded on mount: " + (currentKey ? currentKey.slice(0, 10) + "..." : "missing"));
-  }, []);
+  // Check if API key is present in environment
+  const hasApiKey = !!process.env.API_KEY;
 
   useEffect(() => {
     if (!auth) {
@@ -171,13 +156,12 @@ const App: React.FC = () => {
     if (!goalInput.trim() || isLoading) return;
     
     if (!hasApiKey) {
-      setError("請先在右下角設定您的 Gemini API Key 以啟動教練模式。");
+      setError("API Key 尚未設定，請聯繫管理員。");
       return;
     }
 
     setIsLoading(true);
     setError(null);
-    setIsApiBusy(false);
 
     try {
       const goalData = await gemini.generateGoalStructure(goalInput);
@@ -205,14 +189,8 @@ const App: React.FC = () => {
       setActiveView('coach');
       setGoalInput('');
     } catch (err: any) {
-      console.error("Gemini Generation Error:", err);
-      const errorMessage = err?.message || "";
-      if (errorMessage.includes("503") || errorMessage.includes("overloaded") || errorMessage.includes("busy")) {
-        setIsApiBusy(true);
-        setError("AI 伺服器目前忙碌中（高需求）。這是暫時現象，請點擊下方重試。");
-      } else {
-        setError("生成藍圖時發生錯誤。請檢查您的 API Key 是否正確。");
-      }
+      console.error("AI Generation Error:", err);
+      setError("生成計畫時發生錯誤，請稍後再試。");
     } finally {
       setIsLoading(false);
     }
@@ -246,18 +224,10 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
-             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
+             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
                <Key size={12} />
-               {hasApiKey ? 'Gemini API: 已就緒' : 'Gemini API: 需要 Key'}
+               {hasApiKey ? 'AI Engine: Ready' : 'AI Engine: Missing API Key'}
              </div>
-            {state.user.isLoggedIn && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-800">
-                {state.user.photoURL ? (
-                  <img src={state.user.photoURL} alt="" className="w-5 h-5 rounded-full" />
-                ) : <UserCircle size={14} className="text-indigo-400" />}
-                <span className="text-xs font-bold text-white">{state.user.name}</span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -289,33 +259,22 @@ const App: React.FC = () => {
                 <textarea
                   value={goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
-                  placeholder="例如：'在三個月內學會德語基礎'..."
+                  placeholder="例如：'在 2026 年底前達成財富自由、並養成規律運動習慣'..."
                   className="w-full bg-slate-950 border-2 border-slate-800 rounded-3xl p-6 text-lg text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none min-h-[160px] transition-all placeholder:text-slate-600"
                   disabled={isLoading}
                 />
 
-                {!hasApiKey && (
-                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
-                    <AlertCircle size={18} className="shrink-0" />
-                    請先在右下角輸入您的 Gemini API Key 以啟動 AI 教練功能。
-                  </div>
-                )}
-
                 {error && (
-                  <div className={`p-6 rounded-3xl border animate-in slide-in-from-top-2 duration-300 ${isApiBusy ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                  <div className={`p-6 rounded-3xl border border-rose-500/20 bg-rose-500/10 text-rose-400 animate-in slide-in-from-top-2 duration-300`}>
                     <div className="flex items-start gap-4">
                       <div className="shrink-0 mt-1">
-                        {isApiBusy ? <Timer size={24} /> : <AlertCircle size={24} />}
+                        <AlertCircle size={24} />
                       </div>
                       <div className="flex-1 space-y-3">
-                        <p className="font-bold text-sm leading-relaxed">
-                          {isApiBusy 
-                            ? "AI 伺服器忙碌中（高需求）。請稍候並點擊下方重試。" 
-                            : error}
-                        </p>
+                        <p className="font-bold text-sm leading-relaxed">{error}</p>
                         <button 
                           onClick={handleStartGoal}
-                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg ${isApiBusy ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-rose-600 text-white hover:bg-rose-500'}`}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg bg-rose-600 text-white hover:bg-rose-500"
                         >
                           <RefreshCw size={14} /> 立即重試
                         </button>
@@ -336,13 +295,13 @@ const App: React.FC = () => {
                 ) : (
                   <button 
                     onClick={handleStartGoal}
-                    disabled={isLoading || !goalInput.trim() || !hasApiKey}
+                    disabled={isLoading || !goalInput.trim()}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-5 rounded-3xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-4 group"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-3">
                         <RefreshCw className="animate-spin" />
-                        <span>正在生成您的藍圖...</span>
+                        <span>正在透過 AI 生成您的藍圖...</span>
                       </div>
                     ) : (
                       <>啟動 AI 教練 <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
@@ -372,9 +331,6 @@ const App: React.FC = () => {
           />
         )}
       </main>
-
-      {/* Floating API Key Manager */}
-      <ApiKeyManager onKeyUpdate={(newKey) => setApiKey(newKey)} />
     </div>
   );
 };
