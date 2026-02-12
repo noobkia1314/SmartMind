@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import CoachDashboard from './components/CoachDashboard.tsx';
 import GoalList from './components/GoalList.tsx';
+import ApiKeyManager from './components/ApiKeyManager.tsx';
 import { AppState, UserGoal, UserProfile } from './types.ts';
 import { GeminiService } from './services/geminiService.ts';
 import { 
@@ -46,10 +47,17 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Reactive state for API Key
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
+  
   const gemini = useMemo(() => new GeminiService(), []);
 
-  // Check if API key is present in environment
-  const hasApiKey = !!process.env.API_KEY;
+  // Check if a valid API key is available
+  const hasApiKey = useMemo(() => {
+    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.API_KEY;
+    const finalKey = apiKey || envKey;
+    return !!finalKey && finalKey.length >= 10;
+  }, [apiKey]);
 
   useEffect(() => {
     if (!auth) {
@@ -156,7 +164,7 @@ const App: React.FC = () => {
     if (!goalInput.trim() || isLoading) return;
     
     if (!hasApiKey) {
-      setError("API Key 尚未設定，請聯繫管理員。");
+      setError("請先設定 Grok API Key（原 Gemini 欄位）");
       return;
     }
 
@@ -190,7 +198,7 @@ const App: React.FC = () => {
       setGoalInput('');
     } catch (err: any) {
       console.error("AI Generation Error:", err);
-      setError("生成計畫時發生錯誤，請稍後再試。");
+      setError(err?.message || "生成計畫時發生錯誤，請檢查您的 API Key 是否正確。");
     } finally {
       setIsLoading(false);
     }
@@ -224,9 +232,9 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
-             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
                <Key size={12} />
-               {hasApiKey ? 'AI Engine: Ready' : 'AI Engine: Missing API Key'}
+               {hasApiKey ? 'Grok Engine: Ready' : 'Grok Engine: Need API Key'}
              </div>
           </div>
         </div>
@@ -264,6 +272,13 @@ const App: React.FC = () => {
                   disabled={isLoading}
                 />
 
+                {!hasApiKey && (
+                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
+                    <AlertCircle size={18} className="shrink-0" />
+                    請先在右下角設定您的 Grok (xAI) API Key 以啟動 AI 教練功能。
+                  </div>
+                )}
+
                 {error && (
                   <div className={`p-6 rounded-3xl border border-rose-500/20 bg-rose-500/10 text-rose-400 animate-in slide-in-from-top-2 duration-300`}>
                     <div className="flex items-start gap-4">
@@ -295,13 +310,13 @@ const App: React.FC = () => {
                 ) : (
                   <button 
                     onClick={handleStartGoal}
-                    disabled={isLoading || !goalInput.trim()}
+                    disabled={isLoading || !goalInput.trim() || !hasApiKey}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-5 rounded-3xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-4 group"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-3">
                         <RefreshCw className="animate-spin" />
-                        <span>正在透過 AI 生成您的藍圖...</span>
+                        <span>正在透過 Grok 生成您的藍圖...</span>
                       </div>
                     ) : (
                       <>啟動 AI 教練 <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
@@ -331,6 +346,8 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      <ApiKeyManager onKeyUpdate={(newKey) => setApiKey(newKey)} />
     </div>
   );
 };
