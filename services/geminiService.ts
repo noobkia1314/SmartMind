@@ -11,61 +11,77 @@ export class GeminiService {
       throw new Error("請先設定 Grok API Key（原 Gemini 欄位）");
     }
 
-    console.log("Calling Grok with model: grok-beta, key: " + apiKey.slice(0, 10) + "...");
-
-    const simplifiedSystem = "你是 SmartMind AI 教練，用中文生成結構化目標藍圖、每日任務與 mind map。";
+    const modelsToTry = ["grok-x", "grok", "grok-beta"];
+    const simplifiedSystem = "你是 SmartMind AI 教練，用中文生成目標藍圖、每日任務與 mind map。";
     const finalSystem = jsonMode 
       ? `${simplifiedSystem} 你必須僅回傳純 JSON 格式，不要包含 Markdown 代碼塊標籤。` 
       : simplifiedSystem;
 
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey.trim()}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "grok-beta", // Changed from grok-2 to grok-beta for better stability
-        messages: [
-          { role: "system", content: finalSystem },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      })
-    });
+    let lastError = "";
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.log("Grok error: " + response.status + ", " + errorBody);
-
-      if (response.status === 429) {
-        throw new Error("Grok API 額度暫時用完，請稍後再試");
-      }
-      if (response.status === 401) {
-        throw new Error("API key 無效，請檢查並重新輸入");
-      }
-      if (response.status === 400) {
-        throw new Error(`請求參數錯誤 (400)。請確認模型名稱或 API Key 權限。詳情: ${errorBody}`);
-      }
-      throw new Error(`生成失敗，請檢查網路 (Status: ${response.status})`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    
-    if (jsonMode) {
-      // Robust JSON extraction in case Grok includes markdown wrappers
-      const cleanJson = content.replace(/```json|```/gi, '').trim();
+    for (const model of modelsToTry) {
+      console.log(`Trying Grok model: ${model}, key: ${apiKey.slice(0, 10)}...`);
+      
       try {
-        return JSON.parse(cleanJson);
-      } catch (e) {
-        console.error("Failed to parse JSON from Grok:", content);
-        throw new Error("AI 回傳格式不正確，請再試一次。");
+        const response = await fetch("https://api.x.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey.trim()}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: "system", content: finalSystem },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1500
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices[0].message.content;
+          
+          if (jsonMode) {
+            const cleanJson = content.replace(/```json|```/gi, '').trim();
+            try {
+              return JSON.parse(cleanJson);
+            } catch (e) {
+              console.error("Failed to parse JSON from Grok:", content);
+              throw new Error("AI 回傳格式不正確，請再試一次。");
+            }
+          }
+          return content;
+        }
+
+        const errorBody = await response.text();
+        console.log(`Grok error (${model}): ${response.status}, ${errorBody}`);
+
+        // Handle fallback logic
+        if (response.status === 400 && errorBody.toLowerCase().includes("model not found")) {
+          console.log(`Model ${model} not found, trying fallback model...`);
+          lastError = `Model not found: ${model}`;
+          continue; // Try next model in modelsToTry
+        }
+
+        // Other errors
+        if (response.status === 429) {
+          throw new Error("Grok API 額度暫時用完，請稍後再試");
+        }
+        if (response.status === 401) {
+          throw new Error("API key 無效，請檢查並重新輸入");
+        }
+        
+        throw new Error(`生成失敗 (Status: ${response.status}): ${errorBody}`);
+      } catch (err: any) {
+        if (err.message.includes("Model not found")) continue;
+        throw err;
       }
     }
-    
-    return content;
+
+    throw new Error(`嘗試所有模型後皆失敗。最後錯誤: ${lastError}`);
   }
 
   async generateGoalStructure(goal: string) {
