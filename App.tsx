@@ -164,7 +164,7 @@ const App: React.FC = () => {
     if (!goalInput.trim() || isLoading) return;
     
     if (!hasApiKey) {
-      setError("請先設定 Grok API Key（原 Gemini 欄位）");
+      setError("請先設定 DeepSeek API Key（原欄位）");
       return;
     }
 
@@ -234,7 +234,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
              <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
                <Key size={12} />
-               {hasApiKey ? 'Grok Engine: Ready' : 'Grok Engine: Need API Key'}
+               {hasApiKey ? 'DeepSeek Engine: Ready' : 'DeepSeek Engine: Need API Key'}
              </div>
           </div>
         </div>
@@ -275,7 +275,7 @@ const App: React.FC = () => {
                 {!hasApiKey && (
                   <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
                     <AlertCircle size={18} className="shrink-0" />
-                    請先在右下角設定您的 Grok (xAI) API Key 以啟動 AI 教練功能。
+                    請先在右下角設定您的 DeepSeek API Key 以啟動 AI 教練功能。
                   </div>
                 )}
 
@@ -316,7 +316,7 @@ const App: React.FC = () => {
                     {isLoading ? (
                       <div className="flex items-center gap-3">
                         <RefreshCw className="animate-spin" />
-                        <span>正在透過 Grok 生成您的藍圖...</span>
+                        <span>正在透過 DeepSeek 生成您的藍圖...</span>
                       </div>
                     ) : (
                       <>啟動 AI 教練 <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
