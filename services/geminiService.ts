@@ -3,148 +3,107 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfileStats } from "../types.ts";
 
 export class GeminiService {
-  private getClient() {
-    // Priority: 1. User-set key in localStorage 2. Environment variable
-    const localStorageKey = localStorage.getItem("GEMINI_API_KEY");
-    const envKey = (process.env as any).API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-    const apiKey = localStorageKey || envKey;
-
-    console.log("Gemini API Key source:", localStorageKey ? "localStorage" : (envKey ? "env var" : "missing"));
-    console.log("Gemini API Key value:", apiKey ? `${apiKey.slice(0, 10)}...` : "missing");
-
-    if (!apiKey) {
-      console.warn("Gemini API Key is missing. Please set GEMINI_API_KEY in localStorage or provide process.env.API_KEY.");
-    }
-
-    // Creating a fresh instance to ensure the latest API key is used
-    return new GoogleGenAI({ apiKey: apiKey || "" });
-  }
+  // Always use process.env.API_KEY for initialization
+  private ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
   async generateGoalStructure(goal: string) {
-    const ai = this.getClient();
-    const prompt = `Generate a comprehensive personal development plan for the goal: "${goal}".
-    Return a JSON structure including:
-    1. A mind map (tree structure with id and label).
-    2. A list of 7 initial daily tasks to get started.
-    
-    Response format must be valid JSON:
-    {
-      "mindMap": { "id": "root", "label": "Goal Name", "children": [...] },
-      "tasks": [{ "title": "Task Name", "category": "Category" }]
-    }`;
-
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              mindMap: {
+    // Use gemini-3-pro-preview for complex tasks like goal planning
+    const response = await this.ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `為目標 "${goal}" 生成一份全面的個人發展計畫。回傳包含 1. 心智圖結構 2. 7 個初始每日任務。`,
+      config: {
+        systemInstruction: `你是 SmartMind AI 教練，幫助用戶達成 2026 目標。請根據用戶目標生成一個 JSON 結構。`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            mindMap: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                label: { type: Type.STRING },
+                children: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING },
+                      label: { type: Type.STRING }
+                    },
+                    required: ["id", "label"]
+                  }
+                }
+              },
+              required: ["id", "label"]
+            },
+            tasks: {
+              type: Type.ARRAY,
+              items: {
                 type: Type.OBJECT,
                 properties: {
-                  id: { type: Type.STRING },
-                  label: { type: Type.STRING },
-                  children: { 
-                    type: Type.ARRAY, 
-                    items: { 
-                      type: Type.OBJECT, 
-                      properties: { id: { type: Type.STRING }, label: { type: Type.STRING } },
-                      required: ['id', 'label']
-                    } 
-                  }
+                  title: { type: Type.STRING },
+                  category: { type: Type.STRING }
                 },
-                required: ['id', 'label', 'children']
-              },
-              tasks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    category: { type: Type.STRING }
-                  },
-                  required: ['title', 'category']
-                }
+                required: ["title", "category"]
               }
-            },
-            required: ['mindMap', 'tasks']
-          }
+            }
+          },
+          required: ["mindMap", "tasks"]
         }
-      });
-      return JSON.parse(response.text?.trim() || '{}');
-    } catch (error) {
-      console.error("Gemini Error:", error);
-      throw error;
-    }
+      }
+    });
+
+    if (!response.text) throw new Error("AI 生成失敗");
+    return JSON.parse(response.text);
   }
 
   async calculateNutrition(food: string) {
-    const ai = this.getClient();
-    const prompt = `Calculate estimated calories and protein for: "${food}".`;
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { 
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              calories: { type: Type.NUMBER },
-              protein: { type: Type.NUMBER }
-            },
-            required: ['calories', 'protein']
-          }
+    // Use gemini-3-flash-preview for simple text tasks
+    const response = await this.ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `估算 "${food}" 的卡路里和蛋白質含量。`,
+      config: {
+        systemInstruction: `你是一個營養分析助手。`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            calories: { type: Type.NUMBER },
+            protein: { type: Type.NUMBER }
+          },
+          required: ["calories", "protein"]
         }
-      });
-      return JSON.parse(response.text?.trim() || '{"calories": 0, "protein": 0}');
-    } catch (error) {
-      console.error("Nutrition calculation failed:", error);
-      return { calories: 0, protein: 0 };
-    }
+      }
+    });
+    return response.text ? JSON.parse(response.text) : { calories: 0, protein: 0 };
   }
 
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
-    const ai = this.getClient();
-    const prompt = `Precisely calculate calories burned for: "${exercise}" volume: ${value} ${unit}.
-    User Physical Stats: Age ${stats.age}, ${stats.gender}, ${stats.height}cm, ${stats.weight}kg, Activity ${stats.activityLevel}.
-    Return the result as a single integer for "caloriesBurned".`;
-    
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: prompt,
-        config: { 
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              caloriesBurned: { type: Type.NUMBER }
-            },
-            required: ['caloriesBurned']
-          }
+    const response = await this.ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `計算運動：${exercise}, 數值：${value} ${unit}。用戶數據：年齡 ${stats.age}, ${stats.gender}, 身高 ${stats.height}cm, 體重 ${stats.weight}kg, 活動等級 ${stats.activityLevel}。`,
+      config: {
+        systemInstruction: `你是一個健身數據分析師。`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            caloriesBurned: { type: Type.NUMBER }
+          },
+          required: ["caloriesBurned"]
         }
-      });
-      const data = JSON.parse(response.text?.trim() || '{"caloriesBurned": 0}');
-      return data;
-    } catch (error) {
-      console.error("Exercise calculation failed:", error);
-      return { caloriesBurned: 0 };
-    }
+      }
+    });
+    return response.text ? JSON.parse(response.text) : { caloriesBurned: 0 };
   }
 
   async getCoachAdvice(dataSummary: string) {
-    const ai = this.getClient();
-    const prompt = `As a professional high-performance AI coach, analyze this data summary:
-    ${dataSummary}
-    Provide strategic advice in Markdown format with headings, bullet points, and highlights.`;
-
-    const response = await ai.models.generateContent({
+    const response = await this.ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: prompt,
+      contents: `數據摘要：${dataSummary}。請提供鼓勵且具備行動力的建議。`,
+      config: {
+        systemInstruction: `你是一位專業的高績效 AI 教練。請分析數據並提供 Markdown 格式的策略建議。`
+      }
     });
     return response.text;
   }
