@@ -12,34 +12,43 @@ export class GeminiService {
     }
 
     console.log("Using Grok API with key: " + apiKey.slice(0, 10) + "...");
+    console.log("Sending request to Grok with model: grok-2");
+
+    const simplifiedSystem = "你是 SmartMind AI 教練，用中文回覆結構化藍圖與每日任務。";
+    const finalSystem = jsonMode 
+      ? `${simplifiedSystem} 你必須僅回傳純 JSON 格式，不要包含 Markdown 代碼塊標籤。` 
+      : simplifiedSystem;
 
     const response = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${apiKey.trim()}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "grok-beta",
+        model: "grok-2", // Updated to latest model name
         messages: [
-          { 
-            role: "system", 
-            content: `${systemInstruction} 請用中文回覆。${jsonMode ? "你必須僅回傳純 JSON 格式，不要包含 Markdown 代碼塊標籤。" : ""}` 
-          },
+          { role: "system", content: finalSystem },
           { role: "user", content: prompt }
         ],
-        temperature: 0.7,
-        max_tokens: 3000
+        temperature: 0.8,
+        max_tokens: 1500
       })
     });
 
-    if (response.status === 429) {
-      throw new Error("Grok API 額度暫時用完，請稍後再試");
-    }
-    if (response.status === 401) {
-      throw new Error("API key 無效，請檢查並重新輸入");
-    }
     if (!response.ok) {
+      const errorBody = await response.text();
+      console.log("Grok error status: " + response.status + ", body: " + errorBody);
+
+      if (response.status === 429) {
+        throw new Error("Grok API 額度暫時用完，請稍後再試");
+      }
+      if (response.status === 401) {
+        throw new Error("API key 無效，請檢查並重新輸入");
+      }
+      if (response.status === 400) {
+        throw new Error(`請求參數錯誤 (400)。請確認 API Key 權限或稍後重試。`);
+      }
       throw new Error(`生成失敗，請檢查網路 (Status: ${response.status})`);
     }
 
@@ -49,14 +58,18 @@ export class GeminiService {
     if (jsonMode) {
       // Robust JSON extraction in case Grok includes markdown wrappers
       const cleanJson = content.replace(/```json|```/gi, '').trim();
-      return JSON.parse(cleanJson);
+      try {
+        return JSON.parse(cleanJson);
+      } catch (e) {
+        console.error("Failed to parse JSON from Grok:", content);
+        throw new Error("AI 回傳格式不正確，請再試一次。");
+      }
     }
     
     return content;
   }
 
   async generateGoalStructure(goal: string) {
-    const system = "你是 SmartMind AI 教練，幫助用戶達成 2026 目標。你需要生成結構化藍圖，包括心智圖與每日任務。";
     const prompt = `為目標 "${goal}" 生成一份全面的個人發展計畫。
     回傳 JSON 格式：
     {
@@ -65,7 +78,7 @@ export class GeminiService {
     }`;
 
     try {
-      return await this.callGrok(prompt, system, true);
+      return await this.callGrok(prompt, "", true);
     } catch (error) {
       console.error("Grok Generation Error:", error);
       throw error;
@@ -73,10 +86,9 @@ export class GeminiService {
   }
 
   async calculateNutrition(food: string) {
-    const system = "你是一個營養分析助手。";
     const prompt = `估算 "${food}" 的卡路里和蛋白質含量。回傳 JSON：{"calories": 數字, "protein": 數字}`;
     try {
-      return await this.callGrok(prompt, system, true);
+      return await this.callGrok(prompt, "", true);
     } catch (error) {
       console.error("Nutrition calculation failed:", error);
       return { calories: 0, protein: 0 };
@@ -84,12 +96,11 @@ export class GeminiService {
   }
 
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
-    const system = "你是一個健身數據分析師。";
     const prompt = `計算運動：${exercise}, 數值：${value} ${unit}。回傳 JSON：{"caloriesBurned": 數字}。
     用戶數據：年齡 ${stats.age}, ${stats.gender}, 身高 ${stats.height}cm, 體重 ${stats.weight}kg, 活動等級 ${stats.activityLevel}。`;
     
     try {
-      return await this.callGrok(prompt, system, true);
+      return await this.callGrok(prompt, "", true);
     } catch (error) {
       console.error("Exercise calculation failed:", error);
       return { caloriesBurned: 0 };
@@ -97,9 +108,7 @@ export class GeminiService {
   }
 
   async getCoachAdvice(dataSummary: string) {
-    const system = "你是一位專業的高績效 AI 教練。";
     const prompt = `數據摘要：${dataSummary}。請分析進度並提供 Markdown 格式的策略建議與鼓勵。`;
-
-    return await this.callGrok(prompt, system, false);
+    return await this.callGrok(prompt, "", false);
   }
 }
