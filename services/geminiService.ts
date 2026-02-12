@@ -1,110 +1,105 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfileStats } from "../types.ts";
 
 export class GeminiService {
-  // Always use process.env.API_KEY for initialization
-  private ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  private async callGrok(prompt: string, systemInstruction: string, jsonMode = false) {
+    const localStorageKey = localStorage.getItem("GEMINI_API_KEY");
+    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.API_KEY;
+    const apiKey = localStorageKey || envKey;
 
-  async generateGoalStructure(goal: string) {
-    // Use gemini-3-pro-preview for complex tasks like goal planning
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `為目標 "${goal}" 生成一份全面的個人發展計畫。回傳包含 1. 心智圖結構 2. 7 個初始每日任務。`,
-      config: {
-        systemInstruction: `你是 SmartMind AI 教練，幫助用戶達成 2026 目標。請根據用戶目標生成一個 JSON 結構。`,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            mindMap: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                label: { type: Type.STRING },
-                children: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      id: { type: Type.STRING },
-                      label: { type: Type.STRING }
-                    },
-                    required: ["id", "label"]
-                  }
-                }
-              },
-              required: ["id", "label"]
-            },
-            tasks: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING },
-                  category: { type: Type.STRING }
-                },
-                required: ["title", "category"]
-              }
-            }
+    if (!apiKey || apiKey.length < 10) {
+      throw new Error("請先設定 Grok API Key（原 Gemini 欄位）");
+    }
+
+    console.log("Using Grok API with key: " + apiKey.slice(0, 10) + "...");
+
+    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "grok-beta",
+        messages: [
+          { 
+            role: "system", 
+            content: `${systemInstruction} 請用中文回覆。${jsonMode ? "你必須僅回傳純 JSON 格式，不要包含 Markdown 代碼塊標籤。" : ""}` 
           },
-          required: ["mindMap", "tasks"]
-        }
-      }
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000
+      })
     });
 
-    if (!response.text) throw new Error("AI 生成失敗");
-    return JSON.parse(response.text);
+    if (response.status === 429) {
+      throw new Error("Grok API 額度暫時用完，請稍後再試");
+    }
+    if (response.status === 401) {
+      throw new Error("API key 無效，請檢查並重新輸入");
+    }
+    if (!response.ok) {
+      throw new Error(`生成失敗，請檢查網路 (Status: ${response.status})`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    
+    if (jsonMode) {
+      // Robust JSON extraction in case Grok includes markdown wrappers
+      const cleanJson = content.replace(/```json|```/gi, '').trim();
+      return JSON.parse(cleanJson);
+    }
+    
+    return content;
+  }
+
+  async generateGoalStructure(goal: string) {
+    const system = "你是 SmartMind AI 教練，幫助用戶達成 2026 目標。你需要生成結構化藍圖，包括心智圖與每日任務。";
+    const prompt = `為目標 "${goal}" 生成一份全面的個人發展計畫。
+    回傳 JSON 格式：
+    {
+      "mindMap": { "id": "root", "label": "目標名稱", "children": [{"id": "1", "label": "階段一"}] },
+      "tasks": [{ "title": "任務名稱", "category": "Diet|Exercise|Reading|Finance" }]
+    }`;
+
+    try {
+      return await this.callGrok(prompt, system, true);
+    } catch (error) {
+      console.error("Grok Generation Error:", error);
+      throw error;
+    }
   }
 
   async calculateNutrition(food: string) {
-    // Use gemini-3-flash-preview for simple text tasks
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `估算 "${food}" 的卡路里和蛋白質含量。`,
-      config: {
-        systemInstruction: `你是一個營養分析助手。`,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            calories: { type: Type.NUMBER },
-            protein: { type: Type.NUMBER }
-          },
-          required: ["calories", "protein"]
-        }
-      }
-    });
-    return response.text ? JSON.parse(response.text) : { calories: 0, protein: 0 };
+    const system = "你是一個營養分析助手。";
+    const prompt = `估算 "${food}" 的卡路里和蛋白質含量。回傳 JSON：{"calories": 數字, "protein": 數字}`;
+    try {
+      return await this.callGrok(prompt, system, true);
+    } catch (error) {
+      console.error("Nutrition calculation failed:", error);
+      return { calories: 0, protein: 0 };
+    }
   }
 
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `計算運動：${exercise}, 數值：${value} ${unit}。用戶數據：年齡 ${stats.age}, ${stats.gender}, 身高 ${stats.height}cm, 體重 ${stats.weight}kg, 活動等級 ${stats.activityLevel}。`,
-      config: {
-        systemInstruction: `你是一個健身數據分析師。`,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            caloriesBurned: { type: Type.NUMBER }
-          },
-          required: ["caloriesBurned"]
-        }
-      }
-    });
-    return response.text ? JSON.parse(response.text) : { caloriesBurned: 0 };
+    const system = "你是一個健身數據分析師。";
+    const prompt = `計算運動：${exercise}, 數值：${value} ${unit}。回傳 JSON：{"caloriesBurned": 數字}。
+    用戶數據：年齡 ${stats.age}, ${stats.gender}, 身高 ${stats.height}cm, 體重 ${stats.weight}kg, 活動等級 ${stats.activityLevel}。`;
+    
+    try {
+      return await this.callGrok(prompt, system, true);
+    } catch (error) {
+      console.error("Exercise calculation failed:", error);
+      return { caloriesBurned: 0 };
+    }
   }
 
   async getCoachAdvice(dataSummary: string) {
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `數據摘要：${dataSummary}。請提供鼓勵且具備行動力的建議。`,
-      config: {
-        systemInstruction: `你是一位專業的高績效 AI 教練。請分析數據並提供 Markdown 格式的策略建議。`
-      }
-    });
-    return response.text;
+    const system = "你是一位專業的高績效 AI 教練。";
+    const prompt = `數據摘要：${dataSummary}。請分析進度並提供 Markdown 格式的策略建議與鼓勵。`;
+
+    return await this.callGrok(prompt, system, false);
   }
 }
