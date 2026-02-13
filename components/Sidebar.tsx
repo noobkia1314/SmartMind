@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { LayoutDashboard, Target, Settings, LogOut, Smartphone, UserCircle, LogIn, Cloud } from 'lucide-react';
 import { UserProfile } from '../types.ts';
+import { langService } from '../services/langService.ts';
 
 interface SidebarProps {
   user: UserProfile;
@@ -18,15 +18,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   activeView, 
   setActiveView,
 }) => {
+  const t = (text: string) => langService.t(text);
+  
   const navItems = [
-    { id: 'home', icon: LayoutDashboard, label: '主頁' },
-    { id: 'goals', icon: Target, label: '目標庫' },
-    { id: 'settings', icon: Settings, label: '設定' },
+    { id: 'home', icon: LayoutDashboard, label: t('主頁') },
+    { id: 'goals', icon: Target, label: t('目標庫') },
+    { id: 'settings', icon: Settings, label: t('設定') },
   ];
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 h-screen bg-slate-900 border-r border-slate-800 p-4 fixed left-0 top-0 overflow-y-auto custom-scrollbar z-40">
         <div className="flex items-center gap-3 mb-8 px-2">
           <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -62,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20 active:scale-95"
             >
               <LogIn size={16} />
-              用 Google 登入
+              {t('用 Google 登入')}
             </button>
           ) : (
             <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-2xl border border-slate-800 transition-all hover:border-indigo-500/30">
@@ -79,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <p className="text-sm font-black text-white truncate leading-tight">{user.name || 'Explorer'}</p>
                 <div className="flex items-center gap-1 mt-0.5">
                   <p className={`text-[8px] uppercase tracking-widest font-black ${user.provider === 'google' ? 'text-emerald-500' : 'text-slate-500'}`}>
-                    {user.provider === 'google' ? 'Cloud Sync' : 'Guest Mode'}
+                    {user.provider === 'google' ? t('Cloud Sync') : t('Guest Mode')}
                   </p>
                   {user.provider === 'google' && <Cloud size={8} className="text-emerald-500" />}
                 </div>
@@ -92,7 +93,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </aside>
 
-      {/* Mobile Navigation (Bottom Nav) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 flex justify-around items-center p-3 z-50">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -121,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             ) : (
               <UserCircle size={22} />
             )}
-            <span className="text-[9px] font-black uppercase tracking-widest">設定</span>
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('設定')}</span>
           </button>
         )}
       </nav>
