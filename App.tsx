@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import CoachDashboard from './components/CoachDashboard.tsx';
 import GoalList from './components/GoalList.tsx';
-import ApiKeyManager from './components/ApiKeyManager.tsx';
 import { AppState, UserGoal, UserProfile } from './types.ts';
 import { GeminiService } from './services/geminiService.ts';
 import { langService, Language } from './services/langService.ts';
@@ -48,8 +48,12 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>(() => langService.getLanguage());
 
-  const currentKey = localStorage.getItem("GEMINI_API_KEY") || "";
+  // Reactive state for API Key to enable/disable UI instantly
+  const [currentKey, setCurrentKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
+  
   const gemini = useMemo(() => new GeminiService(), []);
+
+  // Validation logic
   const hasValidKey = useMemo(() => {
     const effectiveKey = currentKey || process.env.API_KEY || "";
     return effectiveKey.length >= 10;
@@ -62,6 +66,11 @@ const App: React.FC = () => {
     const newLang = language === '繁體' ? '簡體' : '繁體';
     langService.setLanguage(newLang);
     setLanguage(newLang);
+  };
+
+  const handleKeyUpdate = (newKey: string) => {
+    setCurrentKey(newKey);
+    setError(null);
   };
 
   useEffect(() => {
@@ -168,7 +177,7 @@ const App: React.FC = () => {
   const handleStartGoal = async () => {
     if (!goalInput.trim() || isLoading) return;
     if (!hasValidKey) {
-      setError(t("請先在左下角設定您的 Gemini API Key。"));
+      setError(t("請先在側邊欄設定您的 Gemini API Key。"));
       return;
     }
     setIsLoading(true);
@@ -225,6 +234,7 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         activeView={activeView}
         setActiveView={setActiveView}
+        onKeyUpdate={handleKeyUpdate}
       />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen pb-32 md:pb-8">
@@ -286,7 +296,7 @@ const App: React.FC = () => {
                 {!hasValidKey && (
                   <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
                     <AlertCircle size={18} className="shrink-0" />
-                    {t('請先在左下角設定您的 Gemini API Key 以啟動 AI 教練功能。')}
+                    {t('請先在側邊欄設定您的 Gemini API Key 以啟動 AI 教練功能。')}
                   </div>
                 )}
 
@@ -357,8 +367,6 @@ const App: React.FC = () => {
           />
         )}
       </main>
-
-      <ApiKeyManager onKeyUpdate={(newKey) => {}} />
     </div>
   );
 };
