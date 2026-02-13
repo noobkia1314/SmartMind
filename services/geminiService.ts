@@ -1,173 +1,106 @@
 
-import { UserProfileStats } from "../types.ts";
-import { GoogleGenAI, Type } from "@google/genai";
+import React, { useState, useEffect } from 'react';
+import { Key, Save, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-export class GeminiService {
-  private async callGemini(params: {
-    prompt: string;
-    model?: string;
-    systemInstruction?: string;
-    responseMimeType?: string;
-    responseSchema?: any;
-  }) {
-    // Priority: Local Storage (Manual Input) > Environment Variable
-    const savedKey = localStorage.getItem("GEMINI_API_KEY");
-    const apiKey = savedKey || process.env.API_KEY;
-
-    if (!apiKey) {
-      throw new Error("請先在右下角設定您的 Gemini API Key。");
-    }
-
-    console.log("Calling Gemini with key: " + apiKey.slice(0, 10) + "...");
-
-    const ai = new GoogleGenAI({ apiKey });
-    
-    const baseSystemInstruction = "你是 SmartMind AI 教練，用中文生成結構化目標藍圖、每日任務、mind map 等內容。回覆清晰、鼓勵性強、格式易讀。";
-    const systemInstruction = params.systemInstruction 
-      ? `${baseSystemInstruction} ${params.systemInstruction}`
-      : baseSystemInstruction;
-
-    try {
-      const response = await ai.models.generateContent({
-        model: params.model || "gemini-3-flash-preview",
-        contents: params.prompt,
-        config: {
-          systemInstruction: systemInstruction,
-          temperature: 0.7,
-          responseMimeType: params.responseMimeType || "text/plain",
-          responseSchema: params.responseSchema,
-        },
-      });
-
-      const content = response.text;
-      if (!content) {
-        throw new Error("AI 回傳了空的內容，請重試。");
-      }
-
-      if (params.responseMimeType === "application/json") {
-        try {
-          return JSON.parse(content.trim());
-        } catch (e) {
-          console.error("Failed to parse JSON from Gemini:", content);
-          throw new Error("AI 回傳格式錯誤，請再試一次。");
-        }
-      }
-      return content;
-    } catch (err: any) {
-      console.error("Gemini Error:", err);
-      if (err.message?.includes("429") || err.message?.includes("quota")) {
-        throw new Error("Gemini 額度用完，請稍後再試或更換 API Key。");
-      }
-      if (err.message?.includes("400") || err.message?.includes("401") || err.message?.includes("API_KEY_INVALID")) {
-        throw new Error("API Key 無效或已過期，請重新輸入。");
-      }
-      throw new Error("生成計畫失敗，請檢查網路及 API Key 設定。");
-    }
-  }
-
-  async generateGoalStructure(goal: string) {
-    const prompt = `為目標 "${goal}" 生成一份全面的個人發展計畫。回傳包含 mindMap 和 tasks 的 JSON。`;
-    
-    const schema = {
-      type: Type.OBJECT,
-      properties: {
-        mindMap: {
-          type: Type.OBJECT,
-          properties: {
-            id: { type: Type.STRING },
-            label: { type: Type.STRING },
-            children: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  label: { type: Type.STRING }
-                },
-                required: ["id", "label"]
-              }
-            }
-          },
-          required: ["id", "label"]
-        },
-        tasks: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              category: { type: Type.STRING }
-            },
-            required: ["title", "category"]
-          }
-        }
-      },
-      required: ["mindMap", "tasks"]
-    };
-
-    return await this.callGemini({
-      prompt,
-      model: "gemini-3-pro-preview",
-      responseMimeType: "application/json",
-      responseSchema: schema
-    });
-  }
-
-  async calculateNutrition(food: string) {
-    const prompt = `估算 "${food}" 的卡路里和蛋白質含量。`;
-    const schema = {
-      type: Type.OBJECT,
-      properties: {
-        calories: { type: Type.NUMBER },
-        protein: { type: Type.NUMBER }
-      },
-      required: ["calories", "protein"]
-    };
-
-    try {
-      return await this.callGemini({
-        prompt,
-        model: "gemini-3-flash-preview",
-        responseMimeType: "application/json",
-        responseSchema: schema
-      });
-    } catch (error) {
-      console.error("Nutrition calculation failed:", error);
-      return { calories: 0, protein: 0 };
-    }
-  }
-
-  async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
-    const prompt = `計算運動：${exercise}, 數值：${value} ${unit}。
-    用戶數據：年齡 ${stats.age}, ${stats.gender}, 身高 ${stats.height}cm, 體重 ${stats.weight}kg, 活動等級 ${stats.activityLevel}。`;
-    
-    const schema = {
-      type: Type.OBJECT,
-      properties: {
-        caloriesBurned: { type: Type.NUMBER }
-      },
-      required: ["caloriesBurned"]
-    };
-
-    try {
-      return await this.callGemini({
-        prompt,
-        model: "gemini-3-flash-preview",
-        responseMimeType: "application/json",
-        responseSchema: schema
-      });
-    } catch (error) {
-      console.error("Exercise calculation failed:", error);
-      return { caloriesBurned: 0 };
-    }
-  }
-
-  async getCoachAdvice(dataSummary: string) {
-    const prompt = `數據摘要：${dataSummary}。請分析進度並提供 Markdown 格式的策略建議與鼓勵。`;
-    return await this.callGemini({
-      prompt,
-      model: "gemini-3-pro-preview",
-      responseMimeType: "text/plain"
-    });
-  }
+interface ApiKeyManagerProps {
+  onKeyUpdate: (newKey: string) => void;
 }
+
+const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ onKeyUpdate }) => {
+  const [keyInput, setKeyInput] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem("GEMINI_API_KEY") || "";
+    setKeyInput(savedKey);
+    console.log("API Key input moved to left side, key present: " + !!savedKey);
+  }, []);
+
+  const handleSave = () => {
+    const trimmed = keyInput.trim();
+    if (trimmed.length > 0 && trimmed.length < 10) {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+      return;
+    }
+
+    localStorage.setItem("GEMINI_API_KEY", trimmed);
+    onKeyUpdate(trimmed);
+    setSaveStatus('success');
+    
+    // Auto reset success message after 5 seconds
+    setTimeout(() => setSaveStatus('idle'), 5000);
+  };
+
+  const hasKey = keyInput.trim().length >= 10;
+
+  return (
+    <div className="fixed bottom-20 md:bottom-5 left-5 z-[9999] w-[320px] max-w-[90vw] animate-in slide-in-from-bottom-5 duration-500" style={{ left: 'max(1.25rem, 5vw)' }}>
+      <div className="bg-[#0f172a] border border-indigo-500/30 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center">
+            <Key size={18} />
+          </div>
+          <h3 className="text-sm font-black text-white tracking-tight">設定 API Key (Gemini / DeepSeek)</h3>
+          {hasKey && (
+            <CheckCircle size={14} className="text-emerald-400 ml-auto animate-pulse" />
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder="貼上你的 API Key"
+              className="w-full bg-[#020617] border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600 pr-10"
+            />
+            <button 
+              onClick={() => setShowKey(!showKey)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+
+          <button
+            onClick={handleSave}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg ${
+              saveStatus === 'success' 
+                ? 'bg-emerald-600 text-white' 
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+            }`}
+          >
+            <Save size={14} /> 
+            {saveStatus === 'success' ? '已儲存並啟用' : '儲存並啟用'}
+          </button>
+
+          {saveStatus === 'success' && (
+            <div className="flex items-center gap-2 text-[10px] text-emerald-400 font-bold justify-center animate-in fade-in zoom-in duration-300">
+              <CheckCircle size={12} />
+              API Key 已儲存並啟用
+            </div>
+          )}
+
+          {saveStatus === 'error' && (
+            <div className="flex items-center gap-2 text-[10px] text-rose-400 font-bold justify-center animate-in shake duration-300">
+              <AlertCircle size={12} />
+              Key 長度不足，請確認格式
+            </div>
+          )}
+
+          {!hasKey && (
+            <p className="text-[9px] text-slate-500 text-center font-medium leading-relaxed">
+              * 需要 API Key 才能使用 AI 教練功能。<br/>
+              Key 僅存於瀏覽器本地，不會上傳至伺服器。
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ApiKeyManager;
