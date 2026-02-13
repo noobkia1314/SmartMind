@@ -3,7 +3,6 @@ import { UserProfileStats } from "../types.ts";
 import { GoogleGenAI, Type } from "@google/genai";
 
 export class GeminiService {
-  // Use a private method to handle common Gemini API logic
   private async callGemini(params: {
     prompt: string;
     model?: string;
@@ -11,13 +10,16 @@ export class GeminiService {
     responseMimeType?: string;
     responseSchema?: any;
   }) {
-    // API key must be obtained exclusively from process.env.API_KEY
-    const apiKey = process.env.API_KEY;
+    // Priority: Local Storage (Manual Input) > Environment Variable
+    const savedKey = localStorage.getItem("GEMINI_API_KEY");
+    const apiKey = savedKey || process.env.API_KEY;
+
     if (!apiKey) {
-      throw new Error("Gemini API Key is missing. Please check your environment configuration.");
+      throw new Error("請先在右下角設定您的 Gemini API Key。");
     }
 
-    // Initialize the Gemini client instance right before making an API call
+    console.log("Calling Gemini with key: " + apiKey.slice(0, 10) + "...");
+
     const ai = new GoogleGenAI({ apiKey });
     
     const baseSystemInstruction = "你是 SmartMind AI 教練，用中文生成結構化目標藍圖、每日任務、mind map 等內容。回覆清晰、鼓勵性強、格式易讀。";
@@ -39,7 +41,7 @@ export class GeminiService {
 
       const content = response.text;
       if (!content) {
-        throw new Error("Gemini returned an empty response");
+        throw new Error("AI 回傳了空的內容，請重試。");
       }
 
       if (params.responseMimeType === "application/json") {
@@ -47,23 +49,22 @@ export class GeminiService {
           return JSON.parse(content.trim());
         } catch (e) {
           console.error("Failed to parse JSON from Gemini:", content);
-          throw new Error("AI returned an invalid format, please try again.");
+          throw new Error("AI 回傳格式錯誤，請再試一次。");
         }
       }
       return content;
     } catch (err: any) {
       console.error("Gemini Error:", err);
       if (err.message?.includes("429") || err.message?.includes("quota")) {
-        throw new Error("Gemini quota exhausted, please try again later.");
+        throw new Error("Gemini 額度用完，請稍後再試或更換 API Key。");
       }
       if (err.message?.includes("400") || err.message?.includes("401") || err.message?.includes("API_KEY_INVALID")) {
-        throw new Error("Invalid API key configuration.");
+        throw new Error("API Key 無效或已過期，請重新輸入。");
       }
-      throw new Error("Generation failed. Please check your network and settings.");
+      throw new Error("生成計畫失敗，請檢查網路及 API Key 設定。");
     }
   }
 
-  // Complex task: Planning a goal structure using gemini-3-pro-preview
   async generateGoalStructure(goal: string) {
     const prompt = `為目標 "${goal}" 生成一份全面的個人發展計畫。回傳包含 mindMap 和 tasks 的 JSON。`;
     
@@ -112,7 +113,6 @@ export class GeminiService {
     });
   }
 
-  // Basic task: Nutrition estimation using gemini-3-flash-preview
   async calculateNutrition(food: string) {
     const prompt = `估算 "${food}" 的卡路里和蛋白質含量。`;
     const schema = {
@@ -137,7 +137,6 @@ export class GeminiService {
     }
   }
 
-  // Basic task: Exercise calorie estimation using gemini-3-flash-preview
   async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
     const prompt = `計算運動：${exercise}, 數值：${value} ${unit}。
     用戶數據：年齡 ${stats.age}, ${stats.gender}, 身高 ${stats.height}cm, 體重 ${stats.weight}kg, 活動等級 ${stats.activityLevel}。`;
@@ -163,7 +162,6 @@ export class GeminiService {
     }
   }
 
-  // Complex task: Providing personalized advice using gemini-3-pro-preview
   async getCoachAdvice(dataSummary: string) {
     const prompt = `數據摘要：${dataSummary}。請分析進度並提供 Markdown 格式的策略建議與鼓勵。`;
     return await this.callGemini({
