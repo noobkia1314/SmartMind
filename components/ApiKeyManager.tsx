@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Key, Save, CheckCircle, AlertCircle, Edit3 } from 'lucide-react';
 
@@ -20,7 +19,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ onKeyUpdate }) => {
   const handleSave = () => {
     const trimmed = keyInput.trim();
     localStorage.setItem("GEMINI_API_KEY", trimmed);
-    console.log("DeepSeek Key saved: " + (trimmed ? trimmed.slice(0, 10) + "..." : "empty"));
+    console.log("Gemini Key saved: " + (trimmed ? trimmed.slice(0, 10) + "..." : "empty"));
     onKeyUpdate(trimmed);
     setIsSaved(true);
     setIsEditing(false);
@@ -37,7 +36,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ onKeyUpdate }) => {
             <div className="w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
               <Key size={18} />
             </div>
-            <h3 className="text-sm font-black text-white tracking-tight">DeepSeek API Key</h3>
+            <h3 className="text-sm font-black text-white tracking-tight">Gemini API Key</h3>
           </div>
           {hasStoredKey && !isEditing && (
             <button 
@@ -57,7 +56,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ onKeyUpdate }) => {
                 type="password"
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="輸入您的 DeepSeek API Key"
+                placeholder="輸入您的 Gemini API Key"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
               />
               <button
@@ -71,7 +70,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ onKeyUpdate }) => {
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-400 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20">
                 <CheckCircle size={16} />
-                <span>DeepSeek Key 已設定</span>
+                <span>Gemini Key 已設定</span>
               </div>
             </div>
           )}
