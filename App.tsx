@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import CoachDashboard from './components/CoachDashboard.tsx';
 import GoalList from './components/GoalList.tsx';
-import ApiKeyManager from './components/ApiKeyManager.tsx';
 import { AppState, UserGoal, UserProfile } from './types.ts';
 import { GeminiService } from './services/geminiService.ts';
 import { 
@@ -47,17 +46,11 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Reactive state for API Key
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
-  
+  // Initialize GeminiService once
   const gemini = useMemo(() => new GeminiService(), []);
 
-  // Check if a valid API key is available
-  const hasApiKey = useMemo(() => {
-    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.API_KEY;
-    const finalKey = apiKey || envKey;
-    return !!finalKey && finalKey.length >= 10;
-  }, [apiKey]);
+  // API Key is strictly obtained from process.env.API_KEY as per guidelines
+  const hasApiKey = !!process.env.API_KEY;
 
   useEffect(() => {
     if (!auth) {
@@ -79,7 +72,7 @@ const App: React.FC = () => {
         let savedGoals: UserGoal[] = [];
         if (!user.isAnonymous && isFirebaseConfigured) {
           try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            const userDoc = await getDoc(doc(doc(db, 'users', user.uid)));
             if (userDoc.exists()) {
               savedGoals = userDoc.data().goals || [];
             } else {
@@ -163,11 +156,6 @@ const App: React.FC = () => {
   const handleStartGoal = async () => {
     if (!goalInput.trim() || isLoading) return;
     
-    if (!hasApiKey) {
-      setError("請先設定 DeepSeek API Key（原欄位）");
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
@@ -198,7 +186,7 @@ const App: React.FC = () => {
       setGoalInput('');
     } catch (err: any) {
       console.error("AI Generation Error:", err);
-      setError(err?.message || "生成計畫時發生錯誤，請檢查您的 API Key 是否正確。");
+      setError(err?.message || "生成計畫時發生錯誤，請檢查系統配置。");
     } finally {
       setIsLoading(false);
     }
@@ -234,7 +222,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
              <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
                <Key size={12} />
-               {hasApiKey ? 'DeepSeek Engine: Ready' : 'DeepSeek Engine: Need API Key'}
+               {hasApiKey ? 'Gemini Engine: Active' : 'Gemini Engine: Config Required'}
              </div>
           </div>
         </div>
@@ -272,13 +260,6 @@ const App: React.FC = () => {
                   disabled={isLoading}
                 />
 
-                {!hasApiKey && (
-                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
-                    <AlertCircle size={18} className="shrink-0" />
-                    請先在右下角設定您的 DeepSeek API Key 以啟動 AI 教練功能。
-                  </div>
-                )}
-
                 {error && (
                   <div className={`p-6 rounded-3xl border border-rose-500/20 bg-rose-500/10 text-rose-400 animate-in slide-in-from-top-2 duration-300`}>
                     <div className="flex items-start gap-4">
@@ -310,13 +291,13 @@ const App: React.FC = () => {
                 ) : (
                   <button 
                     onClick={handleStartGoal}
-                    disabled={isLoading || !goalInput.trim() || !hasApiKey}
+                    disabled={isLoading || !goalInput.trim()}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-5 rounded-3xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-4 group"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-3">
                         <RefreshCw className="animate-spin" />
-                        <span>正在透過 DeepSeek 生成您的藍圖...</span>
+                        <span>正在透過 Gemini 生成您的藍圖...</span>
                       </div>
                     ) : (
                       <>啟動 AI 教練 <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
@@ -346,8 +327,6 @@ const App: React.FC = () => {
           />
         )}
       </main>
-
-      <ApiKeyManager onKeyUpdate={(newKey) => setApiKey(newKey)} />
     </div>
   );
 };
