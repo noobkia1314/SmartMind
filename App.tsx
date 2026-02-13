@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import CoachDashboard from './components/CoachDashboard.tsx';
 import GoalList from './components/GoalList.tsx';
+import ApiKeyManager from './components/ApiKeyManager.tsx';
 import { AppState, UserGoal, UserProfile } from './types.ts';
 import { GeminiService } from './services/geminiService.ts';
 import { 
@@ -46,11 +47,16 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize GeminiService once
+  // Reactive state for API Key to enable/disable UI instantly
+  const [currentKey, setCurrentKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
+  
   const gemini = useMemo(() => new GeminiService(), []);
 
-  // API Key is strictly obtained from process.env.API_KEY as per guidelines
-  const hasApiKey = !!process.env.API_KEY;
+  // Validation logic: checks localStorage key length or falls back to system injected key
+  const hasValidKey = useMemo(() => {
+    const effectiveKey = currentKey || process.env.API_KEY || "";
+    return effectiveKey.length >= 10;
+  }, [currentKey]);
 
   useEffect(() => {
     if (!auth) {
@@ -72,7 +78,7 @@ const App: React.FC = () => {
         let savedGoals: UserGoal[] = [];
         if (!user.isAnonymous && isFirebaseConfigured) {
           try {
-            const userDoc = await getDoc(doc(doc(db, 'users', user.uid)));
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
               savedGoals = userDoc.data().goals || [];
             } else {
@@ -153,9 +159,19 @@ const App: React.FC = () => {
     setActiveView('home');
   };
 
+  const handleKeyUpdate = (newKey: string) => {
+    setCurrentKey(newKey);
+    setError(null);
+  };
+
   const handleStartGoal = async () => {
     if (!goalInput.trim() || isLoading) return;
     
+    if (!hasValidKey) {
+      setError("請先在右下角設定您的 Gemini API Key。");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -186,7 +202,7 @@ const App: React.FC = () => {
       setGoalInput('');
     } catch (err: any) {
       console.error("AI Generation Error:", err);
-      setError(err?.message || "生成計畫時發生錯誤，請檢查系統配置。");
+      setError(err?.message || "生成計畫時發生錯誤，請確認 API Key 是否正確。");
     } finally {
       setIsLoading(false);
     }
@@ -220,9 +236,9 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
-             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
+             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasValidKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
                <Key size={12} />
-               {hasApiKey ? 'Gemini Engine: Active' : 'Gemini Engine: Config Required'}
+               {hasValidKey ? 'Gemini Engine: Active' : 'Gemini Engine: Waiting for Key'}
              </div>
           </div>
         </div>
@@ -260,6 +276,13 @@ const App: React.FC = () => {
                   disabled={isLoading}
                 />
 
+                {!hasValidKey && (
+                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
+                    <AlertCircle size={18} className="shrink-0" />
+                    請先在右下角設定您的 Gemini API Key 以啟動 AI 教練功能。
+                  </div>
+                )}
+
                 {error && (
                   <div className={`p-6 rounded-3xl border border-rose-500/20 bg-rose-500/10 text-rose-400 animate-in slide-in-from-top-2 duration-300`}>
                     <div className="flex items-start gap-4">
@@ -291,7 +314,7 @@ const App: React.FC = () => {
                 ) : (
                   <button 
                     onClick={handleStartGoal}
-                    disabled={isLoading || !goalInput.trim()}
+                    disabled={isLoading || !goalInput.trim() || !hasValidKey}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-5 rounded-3xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-4 group"
                   >
                     {isLoading ? (
@@ -327,6 +350,8 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      <ApiKeyManager onKeyUpdate={handleKeyUpdate} />
     </div>
   );
 };
