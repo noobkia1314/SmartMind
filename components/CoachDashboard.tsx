@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Utensils, Activity, BookOpen, DollarSign, 
@@ -10,6 +9,7 @@ import { UserGoal, RecordType, FoodEntry, ExerciseEntry, FinanceEntry, ReadingEn
 import MindMap from './MindMap.tsx';
 import DailyTaskModal from './DailyTaskModal.tsx';
 import { GeminiService } from '../services/geminiService.ts';
+import ReactMarkdown from 'react-markdown';
 
 interface CoachDashboardProps {
   goal: UserGoal;
@@ -901,8 +901,8 @@ const CoachDashboard: React.FC<CoachDashboardProps> = ({ goal, gemini, onUpdateG
                 <Lightbulb size={24} className="text-amber-500" />
                 <h3 className="text-2xl font-black text-white">教練建議</h3>
               </div>
-              <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed whitespace-pre-wrap">
-                {coachAdvice}
+              <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed">
+                <ReactMarkdown>{coachAdvice}</ReactMarkdown>
               </div>
             </div>
           )}
