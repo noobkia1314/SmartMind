@@ -1,11 +1,11 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import CoachDashboard from './components/CoachDashboard.tsx';
 import GoalList from './components/GoalList.tsx';
 import ApiKeyManager from './components/ApiKeyManager.tsx';
 import { AppState, UserGoal, UserProfile } from './types.ts';
 import { GeminiService } from './services/geminiService.ts';
+import { langService, Language } from './services/langService.ts';
 import { 
   auth, 
   db, 
@@ -20,7 +20,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase.ts';
-import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key, Languages } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -46,17 +46,23 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<Language>(() => langService.getLanguage());
 
-  // Reactive state for API Key to enable/disable UI instantly
-  const [currentKey, setCurrentKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
-  
+  const currentKey = localStorage.getItem("GEMINI_API_KEY") || "";
   const gemini = useMemo(() => new GeminiService(), []);
-
-  // Validation logic: checks localStorage key length or falls back to system injected key
   const hasValidKey = useMemo(() => {
     const effectiveKey = currentKey || process.env.API_KEY || "";
     return effectiveKey.length >= 10;
   }, [currentKey]);
+
+  // Translation helper
+  const t = useCallback((text: string) => langService.t(text), [language]);
+
+  const toggleLanguage = () => {
+    const newLang = language === '繁體' ? '簡體' : '繁體';
+    langService.setLanguage(newLang);
+    setLanguage(newLang);
+  };
 
   useEffect(() => {
     if (!auth) {
@@ -125,13 +131,13 @@ const App: React.FC = () => {
   const handleGoogleLogin = async () => {
     setError(null);
     if (!isFirebaseConfigured) {
-      setError("系統目前僅支援訪客模式 (Firebase 未設定)");
+      setError(t("系統目前僅支援訪客模式 (Firebase 未設定)"));
       return;
     }
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      setError("登入失敗，請稍後再試");
+      setError(t("登入失敗，請稍後再試"));
     }
   };
 
@@ -147,7 +153,7 @@ const App: React.FC = () => {
         }));
       }
     } catch (err) {
-      setError("訪客登入失敗");
+      setError(t("訪客登入失敗"));
     }
   };
 
@@ -159,19 +165,12 @@ const App: React.FC = () => {
     setActiveView('home');
   };
 
-  const handleKeyUpdate = (newKey: string) => {
-    setCurrentKey(newKey);
-    setError(null);
-  };
-
   const handleStartGoal = async () => {
     if (!goalInput.trim() || isLoading) return;
-    
     if (!hasValidKey) {
-      setError("請先在右下角設定您的 Gemini API Key。");
+      setError(t("請先在左下角設定您的 Gemini API Key。"));
       return;
     }
-
     setIsLoading(true);
     setError(null);
 
@@ -202,7 +201,7 @@ const App: React.FC = () => {
       setGoalInput('');
     } catch (err: any) {
       console.error("AI Generation Error:", err);
-      setError(err?.message || "生成計畫時發生錯誤，請確認 API Key 是否正確。");
+      setError(err?.message || t("生成計畫時發生錯誤，請確認 API Key 是否正確。"));
     } finally {
       setIsLoading(false);
     }
@@ -230,17 +229,25 @@ const App: React.FC = () => {
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen pb-32 md:pb-8">
         <div className="max-w-4xl mx-auto mb-8 flex flex-wrap gap-3 items-center justify-between">
-          <div className={`px-4 py-2 rounded-full border text-xs font-black flex items-center gap-2 transition-all ${state.user.isLoggedIn ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-            {state.user.isLoggedIn ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
-            {state.user.isLoggedIn ? (state.user.provider === 'google' ? '雲端同步：已啟動' : '離線模式：資料存於本地') : '尚未登入'}
+          <div className="flex flex-wrap gap-3">
+            <div className={`px-4 py-2 rounded-full border text-xs font-black flex items-center gap-2 transition-all ${state.user.isLoggedIn ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
+              {state.user.isLoggedIn ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
+              {state.user.isLoggedIn ? (state.user.provider === 'google' ? t('雲端同步：已啟動') : t('離線模式：資料存於本地')) : t('尚未登入')}
+            </div>
+            
+            <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasValidKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
+              <Key size={12} />
+              {hasValidKey ? 'Gemini Engine: Active' : 'Gemini Engine: Waiting for Key'}
+            </div>
           </div>
-          
-          <div className="flex items-center gap-3">
-             <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasValidKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
-               <Key size={12} />
-               {hasValidKey ? 'Gemini Engine: Active' : 'Gemini Engine: Waiting for Key'}
-             </div>
-          </div>
+
+          <button 
+            onClick={toggleLanguage}
+            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-xs font-black transition-all active:scale-95 shadow-lg shadow-indigo-600/20"
+          >
+            <Languages size={14} />
+            {t('繁體 ↔ 簡體')} ({language})
+          </button>
         </div>
 
         {activeView === 'home' && (
@@ -253,7 +260,7 @@ const App: React.FC = () => {
                 Smart<span className="text-indigo-500">Mind</span> AI
               </h1>
               <p className="text-xl text-slate-400 max-w-xl mx-auto leading-relaxed">
-                您的全方位進化教練：追蹤目標、管理健康與財富。
+                {t('您的全方位進化教練：追蹤目標、管理健康與財富。')}
               </p>
             </div>
 
@@ -265,13 +272,13 @@ const App: React.FC = () => {
                   <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
                     <Target className="text-white w-6 h-6" />
                   </div>
-                  <h2 className="text-2xl font-black text-white uppercase tracking-tight">啟動新目標</h2>
+                  <h2 className="text-2xl font-black text-white uppercase tracking-tight">{t('啟動新目標')}</h2>
                 </div>
 
                 <textarea
                   value={goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
-                  placeholder="例如：'在 2026 年底前達成財富自由、並養成規律運動習慣'..."
+                  placeholder={t("例如：'在 2026 年底前達成財富自由、並養成規律運動習慣'...")}
                   className="w-full bg-slate-950 border-2 border-slate-800 rounded-3xl p-6 text-lg text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none min-h-[160px] transition-all placeholder:text-slate-600"
                   disabled={isLoading}
                 />
@@ -279,7 +286,7 @@ const App: React.FC = () => {
                 {!hasValidKey && (
                   <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
                     <AlertCircle size={18} className="shrink-0" />
-                    請先在右下角設定您的 Gemini API Key 以啟動 AI 教練功能。
+                    {t('請先在左下角設定您的 Gemini API Key 以啟動 AI 教練功能。')}
                   </div>
                 )}
 
@@ -290,12 +297,12 @@ const App: React.FC = () => {
                         <AlertCircle size={24} />
                       </div>
                       <div className="flex-1 space-y-3">
-                        <p className="font-bold text-sm leading-relaxed">{error}</p>
+                        <p className="font-bold text-sm leading-relaxed">{t(error)}</p>
                         <button 
                           onClick={handleStartGoal}
                           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg bg-rose-600 text-white hover:bg-rose-500"
                         >
-                          <RefreshCw size={14} /> 立即重試
+                          <RefreshCw size={14} /> {t('立即重試')}
                         </button>
                       </div>
                     </div>
@@ -305,10 +312,10 @@ const App: React.FC = () => {
                 {!state.user.isLoggedIn ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button onClick={handleGoogleLogin} className="flex items-center justify-center gap-3 bg-white text-slate-950 py-5 rounded-3xl text-lg font-black hover:bg-slate-100 transition-all active:scale-95">
-                      <LogIn size={20} /> Google 登入
+                      <LogIn size={20} /> {t('Google 登入')}
                     </button>
                     <button onClick={handleAnonymousLogin} className="flex items-center justify-center gap-3 bg-slate-800 text-white py-5 rounded-3xl text-lg font-black hover:bg-slate-700 border border-slate-700 transition-all active:scale-95">
-                      訪客登入
+                      {t('訪客登入')}
                     </button>
                   </div>
                 ) : (
@@ -320,10 +327,10 @@ const App: React.FC = () => {
                     {isLoading ? (
                       <div className="flex items-center gap-3">
                         <RefreshCw className="animate-spin" />
-                        <span>正在透過 Gemini 生成您的藍圖...</span>
+                        <span>{t('正在透過 Gemini 生成您的藍圖...')}</span>
                       </div>
                     ) : (
-                      <>啟動 AI 教練 <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
+                      <>{t('啟動 AI 教練')} <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
                     )}
                   </button>
                 )}
@@ -334,7 +341,7 @@ const App: React.FC = () => {
               <div className="space-y-6 pt-4">
                 <h2 className="text-2xl font-black text-white flex items-center gap-3">
                   <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
-                  活躍目標
+                  {t('活躍目標')}
                 </h2>
                 <GoalList goals={state.goals} onSelectGoal={(id) => { setState(prev => ({...prev, activeGoalId: id})); setActiveView('coach'); }} />
               </div>
@@ -351,7 +358,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <ApiKeyManager onKeyUpdate={handleKeyUpdate} />
+      <ApiKeyManager onKeyUpdate={(newKey) => {}} />
     </div>
   );
 };
