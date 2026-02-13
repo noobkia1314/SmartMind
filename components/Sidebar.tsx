@@ -1,5 +1,6 @@
-import React from 'react';
-import { LayoutDashboard, Target, Settings, LogOut, Smartphone, UserCircle, LogIn, Cloud } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Target, Settings, LogOut, Smartphone, UserCircle, LogIn, Cloud, Key, Edit2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import { UserProfile } from '../types.ts';
 import { langService } from '../services/langService.ts';
 
@@ -9,6 +10,7 @@ interface SidebarProps {
   onLogin: () => void;
   activeView: string;
   setActiveView: (view: string) => void;
+  onKeyUpdate: (newKey: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -17,9 +19,29 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogin, 
   activeView, 
   setActiveView,
+  onKeyUpdate
 }) => {
   const t = (text: string) => langService.t(text);
   
+  const [keyInput, setKeyInput] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
+  const [isEditingKey, setIsEditingKey] = useState(() => !localStorage.getItem("GEMINI_API_KEY"));
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    console.log("API Key input integrated into sidebar, key present: " + !!localStorage.getItem("GEMINI_API_KEY"));
+  }, []);
+
+  const handleSaveKey = () => {
+    const trimmed = keyInput.trim();
+    localStorage.setItem("GEMINI_API_KEY", trimmed);
+    onKeyUpdate(trimmed);
+    setIsEditingKey(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const hasKey = !!localStorage.getItem("GEMINI_API_KEY") && localStorage.getItem("GEMINI_API_KEY")!.length >= 10;
+
   const navItems = [
     { id: 'home', icon: LayoutDashboard, label: t('主頁') },
     { id: 'goals', icon: Target, label: t('目標庫') },
@@ -56,7 +78,56 @@ const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        <div className="mt-auto pt-8 border-t border-slate-800 space-y-4">
+        <div className="mt-auto pt-6 border-t border-slate-800 space-y-4">
+          {/* Integrated API Key Section */}
+          <div className="px-2 py-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                <Key size={12} className="text-indigo-400" />
+                {t('Gemini / DeepSeek Key')}
+              </span>
+              {hasKey && !isEditingKey && (
+                <button 
+                  onClick={() => setIsEditingKey(true)}
+                  className="text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  <Edit2 size={12} />
+                </button>
+              )}
+            </div>
+
+            {isEditingKey ? (
+              <div className="space-y-2">
+                <input 
+                  type="password"
+                  value={keyInput}
+                  onChange={(e) => setKeyInput(e.target.value)}
+                  placeholder={t("貼上 API Key")}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none transition-all placeholder:text-slate-700"
+                />
+                <button 
+                  onClick={handleSaveKey}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-[10px] font-black flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                >
+                  <Save size={12} />
+                  {t('儲存並啟用')}
+                </button>
+              </div>
+            ) : (
+              <div className={`flex items-center gap-2 text-[10px] font-bold ${saveSuccess ? 'text-emerald-400' : 'text-slate-400'}`}>
+                {saveSuccess ? <CheckCircle2 size={12} /> : <CheckCircle2 size={12} className="text-emerald-500" />}
+                {saveSuccess ? t('已儲存') : t('API Key 已設定')}
+              </div>
+            )}
+            
+            {!hasKey && !isEditingKey && (
+              <div className="flex items-center gap-1.5 text-[9px] font-bold text-rose-400 animate-pulse">
+                <AlertCircle size={10} />
+                {t('請設定 API Key')}
+              </div>
+            )}
+          </div>
+
           {!user.isLoggedIn ? (
             <button 
               onClick={onLogin}
