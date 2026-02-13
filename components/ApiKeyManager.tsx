@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Key, Save, CheckCircle, AlertCircle, Edit3 } from 'lucide-react';
+import { Key, Save, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 interface ApiKeyManagerProps {
   onKeyUpdate: (newKey: string) => void;
@@ -7,85 +8,94 @@ interface ApiKeyManagerProps {
 
 const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ onKeyUpdate }) => {
   const [keyInput, setKeyInput] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     const savedKey = localStorage.getItem("GEMINI_API_KEY") || "";
     setKeyInput(savedKey);
-    if (!savedKey) setIsEditing(true);
+    console.log("API Key input rendered, current key: " + (savedKey ? "present" : "missing"));
   }, []);
 
   const handleSave = () => {
     const trimmed = keyInput.trim();
+    if (trimmed.length > 0 && trimmed.length < 10) {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+      return;
+    }
+
     localStorage.setItem("GEMINI_API_KEY", trimmed);
-    console.log("Gemini Key saved: " + (trimmed ? trimmed.slice(0, 10) + "..." : "empty"));
     onKeyUpdate(trimmed);
-    setIsSaved(true);
-    setIsEditing(false);
-    setTimeout(() => setIsSaved(false), 3000);
+    setSaveStatus('success');
+    
+    // Auto reset success message after 5 seconds
+    setTimeout(() => setSaveStatus('idle'), 5000);
   };
 
-  const hasStoredKey = !!localStorage.getItem("GEMINI_API_KEY");
+  const hasKey = keyInput.trim().length >= 10;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[99999] w-[90vw] md:w-[320px] animate-in slide-in-from-bottom-5 duration-500">
-      <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
-              <Key size={18} />
-            </div>
-            <h3 className="text-sm font-black text-white tracking-tight">Gemini API Key</h3>
+    <div className="fixed bottom-5 right-5 z-[9999] w-[320px] max-w-[90vw] animate-in slide-in-from-bottom-5 duration-500" style={{ right: 'max(1.25rem, 5vw)' }}>
+      <div className="bg-[#0f172a] border border-indigo-500/30 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-lg flex items-center justify-center">
+            <Key size={18} />
           </div>
-          {hasStoredKey && !isEditing && (
-            <button 
-              onClick={() => setIsEditing(true)}
-              className="p-2 text-slate-500 hover:text-indigo-400 transition-colors"
-              title="修改 Key"
-            >
-              <Edit3 size={16} />
-            </button>
+          <h3 className="text-sm font-black text-white tracking-tight">設定 API Key (Gemini)</h3>
+          {hasKey && (
+            <CheckCircle size={14} className="text-emerald-400 ml-auto animate-pulse" />
           )}
         </div>
 
-        <div className="space-y-3">
-          {isEditing ? (
-            <>
-              <input
-                type="password"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="輸入您的 Gemini API Key"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-              />
-              <button
-                onClick={handleSave}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg shadow-indigo-600/20"
-              >
-                <Save size={14} /> 儲存並啟用
-              </button>
-            </>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-400 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20">
-                <CheckCircle size={16} />
-                <span>Gemini Key 已設定</span>
-              </div>
+        <div className="space-y-4">
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder="貼上你的 API Key"
+              className="w-full bg-[#020617] border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600 pr-10"
+            />
+            <button 
+              onClick={() => setShowKey(!showKey)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+
+          <button
+            onClick={handleSave}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg ${
+              saveStatus === 'success' 
+                ? 'bg-emerald-600 text-white' 
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+            }`}
+          >
+            <Save size={14} /> 
+            {saveStatus === 'success' ? '已儲存並啟用' : '儲存並啟用'}
+          </button>
+
+          {saveStatus === 'success' && (
+            <div className="flex items-center gap-2 text-[10px] text-emerald-400 font-bold justify-center animate-in fade-in zoom-in duration-300">
+              <CheckCircle size={12} />
+              API Key 已儲存並啟用
             </div>
           )}
 
-          {isSaved && (
-            <p className="text-[10px] text-emerald-400 font-bold text-center animate-in fade-in duration-300">
-              設定已更新，立即可用。
-            </p>
-          )}
-
-          {!hasStoredKey && !isEditing && (
-            <div className="flex items-center gap-2 text-[9px] text-rose-400 font-bold bg-rose-500/10 p-2 rounded-lg">
+          {saveStatus === 'error' && (
+            <div className="flex items-center gap-2 text-[10px] text-rose-400 font-bold justify-center animate-in shake duration-300">
               <AlertCircle size={12} />
-              請設定 Key 以啟動教練模式
+              Key 長度不足，請確認格式
             </div>
+          )}
+
+          {!hasKey && (
+            <p className="text-[9px] text-slate-500 text-center font-medium leading-relaxed">
+              * 需要 API Key 才能使用 AI 教練功能。<br/>
+              Key 僅存於瀏覽器本地，不會上傳至伺服器。
+            </p>
           )}
         </div>
       </div>
