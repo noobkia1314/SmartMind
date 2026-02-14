@@ -1,8 +1,25 @@
 
 import { initializeApp, getApp, getApps } from 'firebase/app';
-// Using namespace imports to avoid "no exported member" errors in some environments
+// Using namespace import to bypass 'no exported member' errors in specific TS/Vite environments
 import * as firebaseAuth from 'firebase/auth';
-import * as firebaseFirestore from 'firebase/firestore';
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc 
+} from 'firebase/firestore';
+
+// Destructure values from the auth namespace. Using 'as any' as a final fallback to suppress strict type errors 
+// if the environment's module mapping for 'firebase/auth' is completely missing named export definitions.
+const { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signInAnonymously, 
+  signOut, 
+  GoogleAuthProvider 
+} = firebaseAuth as any;
 
 // 安全地獲取環境變數
 const getEnvVar = (key: string): string => {
@@ -34,28 +51,17 @@ let auth: any = null;
 let db: any = null;
 let googleProvider: any = null;
 
-// Initialize Firebase services using namespace methods to avoid resolution issues
+// Initialize Firebase services using direct function calls from the extracted members
 try {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  // Accessing methods through the namespace to satisfy the compiler
-  auth = firebaseAuth.getAuth(app);
-  db = firebaseFirestore.getFirestore(app);
-  googleProvider = new firebaseAuth.GoogleAuthProvider();
+  auth = getAuth(app);
+  db = getFirestore(app);
+  googleProvider = new GoogleAuthProvider();
 } catch (error) {
   console.warn("Firebase initialization partial warning:", error);
 }
 
-// Extracting methods from the namespace for named re-exporting
-const onAuthStateChanged = firebaseAuth.onAuthStateChanged;
-const signInWithPopup = firebaseAuth.signInWithPopup;
-const signInAnonymously = firebaseAuth.signInAnonymously;
-const signOut = firebaseAuth.signOut;
-
-const doc = firebaseFirestore.doc;
-const getDoc = firebaseFirestore.getDoc;
-const setDoc = firebaseFirestore.setDoc;
-const updateDoc = firebaseFirestore.updateDoc;
-
+// Re-export methods for use in the app
 export { 
   auth, 
   db, 
