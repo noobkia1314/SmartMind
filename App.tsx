@@ -20,7 +20,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase.ts';
-import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key, Languages } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key, Languages, MonitorCheck, Smartphone } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -48,29 +48,27 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>(() => langService.getLanguage());
 
-  // Reactive state for API Key to enable/disable UI instantly
-  const [currentKey, setCurrentKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
-  
+  // Detect platform & environment
+  const isTauri = useMemo(() => !!(window as any).__TAURI_METADATA__, []);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      if (/android|iphone|ipad|ipod/i.test(userAgent.toLowerCase())) {
+        setIsMobile(true);
+      }
+    };
+    checkMobile();
+  }, []);
+
   const gemini = useMemo(() => new GeminiService(), []);
-
-  // Validation logic
-  const hasValidKey = useMemo(() => {
-    const effectiveKey = currentKey || process.env.API_KEY || "";
-    return effectiveKey.length >= 10;
-  }, [currentKey]);
-
-  // Translation helper
   const t = useCallback((text: string) => langService.t(text), [language]);
 
   const toggleLanguage = () => {
     const newLang = language === '繁體' ? '簡體' : '繁體';
     langService.setLanguage(newLang);
     setLanguage(newLang);
-  };
-
-  const handleKeyUpdate = (newKey: string) => {
-    setCurrentKey(newKey);
-    setError(null);
   };
 
   useEffect(() => {
@@ -176,13 +174,8 @@ const App: React.FC = () => {
 
   const handleStartGoal = async () => {
     if (!goalInput.trim() || isLoading) return;
-    if (!hasValidKey) {
-      setError(t("請先在側邊欄設定您的 Gemini API Key。"));
-      return;
-    }
     setIsLoading(true);
     setError(null);
-
     try {
       const goalData = await gemini.generateGoalStructure(goalInput);
       const newGoal: UserGoal = {
@@ -200,7 +193,6 @@ const App: React.FC = () => {
         })) || [],
         foodLogs: [], exerciseLogs: [], readingLogs: [], financeLogs: []
       };
-
       setState(prev => ({
         ...prev,
         goals: [newGoal, ...prev.goals],
@@ -209,8 +201,7 @@ const App: React.FC = () => {
       setActiveView('coach');
       setGoalInput('');
     } catch (err: any) {
-      console.error("AI Generation Error:", err);
-      setError(err?.message || t("生成計畫時發生錯誤，請確認 API Key 是否正確。"));
+      setError(err?.message || t("生成計畫時發生錯誤，請稍後再試。"));
     } finally {
       setIsLoading(false);
     }
@@ -234,10 +225,19 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         activeView={activeView}
         setActiveView={setActiveView}
-        onKeyUpdate={handleKeyUpdate}
       />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen pb-32 md:pb-8">
+        {/* Mobile Detection Banner */}
+        {isMobile && !isTauri && (
+          <div className="max-w-4xl mx-auto mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 animate-pulse">
+            <Smartphone className="text-amber-500 shrink-0" size={20} />
+            <p className="text-sm font-black text-amber-400">
+              {t('手機版開發中，請使用電腦版以獲得最佳體驗')}
+            </p>
+          </div>
+        )}
+
         <div className="max-w-4xl mx-auto mb-8 flex flex-wrap gap-3 items-center justify-between">
           <div className="flex flex-wrap gap-3">
             <div className={`px-4 py-2 rounded-full border text-xs font-black flex items-center gap-2 transition-all ${state.user.isLoggedIn ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
@@ -245,10 +245,17 @@ const App: React.FC = () => {
               {state.user.isLoggedIn ? (state.user.provider === 'google' ? t('雲端同步：已啟動') : t('離線模式：資料存於本地')) : t('尚未登入')}
             </div>
             
-            <div className={`px-3 py-1.5 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all ${hasValidKey ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400 animate-pulse'}`}>
+            <div className="px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold flex items-center gap-1.5 transition-all">
               <Key size={12} />
-              {hasValidKey ? 'Gemini Engine: Active' : 'Gemini Engine: Waiting for Key'}
+              Gemini Engine: Ready
             </div>
+
+            {isTauri && (
+              <div className="px-3 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-400 text-[10px] font-bold flex items-center gap-1.5">
+                <MonitorCheck size={12} />
+                {t('桌面版本已啟動')}
+              </div>
+            )}
           </div>
 
           <button 
@@ -293,13 +300,6 @@ const App: React.FC = () => {
                   disabled={isLoading}
                 />
 
-                {!hasValidKey && (
-                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-[11px] font-bold flex items-center gap-3 animate-pulse">
-                    <AlertCircle size={18} className="shrink-0" />
-                    {t('請先在側邊欄設定您的 Gemini API Key 以啟動 AI 教練功能。')}
-                  </div>
-                )}
-
                 {error && (
                   <div className={`p-6 rounded-3xl border border-rose-500/20 bg-rose-500/10 text-rose-400 animate-in slide-in-from-top-2 duration-300`}>
                     <div className="flex items-start gap-4">
@@ -331,7 +331,7 @@ const App: React.FC = () => {
                 ) : (
                   <button 
                     onClick={handleStartGoal}
-                    disabled={isLoading || !goalInput.trim() || !hasValidKey}
+                    disabled={isLoading || !goalInput.trim()}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white py-5 rounded-3xl text-xl font-black transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-4 group"
                   >
                     {isLoading ? (
