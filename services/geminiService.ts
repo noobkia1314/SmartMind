@@ -10,17 +10,8 @@ export class GeminiService {
     responseMimeType?: string;
     responseSchema?: any;
   }) {
-    // Priority: Local Storage (Manual Input) > Environment Variable
-    const savedKey = localStorage.getItem("GEMINI_API_KEY");
-    const apiKey = savedKey || process.env.API_KEY;
-
-    if (!apiKey) {
-      throw new Error("請先在右下角設定您的 Gemini API Key。");
-    }
-
-    console.log("Calling Gemini with key: " + apiKey.slice(0, 10) + "...");
-
-    const ai = new GoogleGenAI({ apiKey });
+    // Obtain API key exclusively from environment variable
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const baseSystemInstruction = "你是 SmartMind AI 教練，用中文生成結構化目標藍圖、每日任務、mind map 等內容。回覆清晰、鼓勵性強、格式易讀。";
     const systemInstruction = params.systemInstruction 
@@ -56,12 +47,12 @@ export class GeminiService {
     } catch (err: any) {
       console.error("Gemini Error:", err);
       if (err.message?.includes("429") || err.message?.includes("quota")) {
-        throw new Error("Gemini 額度用完，請稍後再試或更換 API Key。");
+        throw new Error("Gemini 額度用完，請稍後再試。");
       }
       if (err.message?.includes("400") || err.message?.includes("401") || err.message?.includes("API_KEY_INVALID")) {
-        throw new Error("API Key 無效或已過期，請重新輸入。");
+        throw new Error("系統配置錯誤，請聯絡開發者。");
       }
-      throw new Error("生成計畫失敗，請檢查網路及 API Key 設定。");
+      throw new Error("生成計畫失敗，請檢查網路連線。");
     }
   }
 
@@ -107,14 +98,13 @@ export class GeminiService {
 
     return await this.callGemini({
       prompt,
-      model: "gemini-3-pro-preview",
       responseMimeType: "application/json",
       responseSchema: schema
     });
   }
 
   async calculateNutrition(food: string) {
-    const prompt = `估算 "${food}" 的卡路里和蛋白質含量。`;
+    const prompt = `分析食物 "${food}" 的營養成分。請回傳包含 calories (number) 和 protein (number) 的 JSON。`;
     const schema = {
       type: Type.OBJECT,
       properties: {
@@ -123,24 +113,15 @@ export class GeminiService {
       },
       required: ["calories", "protein"]
     };
-
-    try {
-      return await this.callGemini({
-        prompt,
-        model: "gemini-3-flash-preview",
-        responseMimeType: "application/json",
-        responseSchema: schema
-      });
-    } catch (error) {
-      console.error("Nutrition calculation failed:", error);
-      return { calories: 0, protein: 0 };
-    }
+    return await this.callGemini({
+      prompt,
+      responseMimeType: "application/json",
+      responseSchema: schema
+    });
   }
 
-  async calculateExercise(exercise: string, value: number, unit: string, stats: UserProfileStats) {
-    const prompt = `計算運動：${exercise}, 數值：${value} ${unit}。
-    用戶數據：年齡 ${stats.age}, ${stats.gender}, 身高 ${stats.height}cm, 體重 ${stats.weight}kg, 活動等級 ${stats.activityLevel}。`;
-    
+  async calculateExercise(name: string, value: number, unit: string, stats: UserProfileStats) {
+    const prompt = `計算運動 "${name}" (${value} ${unit}) 消耗的熱量。使用者資料：年齡${stats.age}，體重${stats.weight}kg。請回傳包含 caloriesBurned (number) 的 JSON。`;
     const schema = {
       type: Type.OBJECT,
       properties: {
@@ -148,26 +129,15 @@ export class GeminiService {
       },
       required: ["caloriesBurned"]
     };
-
-    try {
-      return await this.callGemini({
-        prompt,
-        model: "gemini-3-flash-preview",
-        responseMimeType: "application/json",
-        responseSchema: schema
-      });
-    } catch (error) {
-      console.error("Exercise calculation failed:", error);
-      return { caloriesBurned: 0 };
-    }
-  }
-
-  async getCoachAdvice(dataSummary: string) {
-    const prompt = `數據摘要：${dataSummary}。請分析進度並提供 Markdown 格式的策略建議與鼓勵。`;
     return await this.callGemini({
       prompt,
-      model: "gemini-3-pro-preview",
-      responseMimeType: "text/plain"
+      responseMimeType: "application/json",
+      responseSchema: schema
     });
+  }
+
+  async getCoachAdvice(summary: string) {
+    const prompt = `根據以下進度摘要提供教練建議：${summary}。回覆請使用 Markdown 格式。`;
+    return await this.callGemini({ prompt });
   }
 }
