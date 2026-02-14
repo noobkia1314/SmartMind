@@ -20,7 +20,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase.ts';
-import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key, Languages, MonitorCheck, Smartphone } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key, Languages, MonitorCheck } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -48,19 +48,8 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>(() => langService.getLanguage());
 
-  // Detect platform & environment
+  // Detect platform & environment (Desktop focused)
   const isTauri = useMemo(() => !!(window as any).__TAURI_METADATA__, []);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-      if (/android|iphone|ipad|ipod/i.test(userAgent.toLowerCase())) {
-        setIsMobile(true);
-      }
-    };
-    checkMobile();
-  }, []);
 
   const gemini = useMemo(() => new GeminiService(), []);
   const t = useCallback((text: string) => langService.t(text), [language]);
@@ -227,17 +216,7 @@ const App: React.FC = () => {
         setActiveView={setActiveView}
       />
 
-      <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen pb-32 md:pb-8">
-        {/* Mobile Detection Banner */}
-        {isMobile && !isTauri && (
-          <div className="max-w-4xl mx-auto mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 animate-pulse">
-            <Smartphone className="text-amber-500 shrink-0" size={20} />
-            <p className="text-sm font-black text-amber-400">
-              {t('手機版開發中，請使用電腦版以獲得最佳體驗')}
-            </p>
-          </div>
-        )}
-
+      <main className="flex-1 md:ml-64 p-4 md:p-8 min-h-screen">
         <div className="max-w-4xl mx-auto mb-8 flex flex-wrap gap-3 items-center justify-between">
           <div className="flex flex-wrap gap-3">
             <div className={`px-4 py-2 rounded-full border text-xs font-black flex items-center gap-2 transition-all ${state.user.isLoggedIn ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
