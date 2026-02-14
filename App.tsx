@@ -20,7 +20,7 @@ import {
   setDoc,
   updateDoc 
 } from './services/firebase.ts';
-import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key, Languages, MonitorCheck } from 'lucide-react';
+import { Target, BrainCircuit, Rocket, RefreshCw, AlertCircle, LogIn, ShieldCheck, Key, Languages, MonitorCheck, Info } from 'lucide-react';
 
 const INITIAL_USER: UserProfile = { 
   name: '訪客', 
@@ -49,7 +49,7 @@ const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>(() => langService.getLanguage());
 
   // Detect platform & environment (Desktop focused)
-  const isTauri = useMemo(() => !!(window as any).__TAURI_METADATA__, []);
+  const isTauri = useMemo(() => !!(window as any).__TAURI_METADATA__ || !!(window as any).__TAURI__, []);
 
   const gemini = useMemo(() => new GeminiService(), []);
   const t = useCallback((text: string) => langService.t(text), [language]);
@@ -226,7 +226,7 @@ const App: React.FC = () => {
             
             <div className="px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold flex items-center gap-1.5 transition-all">
               <Key size={12} />
-              Gemini Engine: Ready
+              Gemini Engine: {isTauri ? 'Offline Sim' : 'Online'}
             </div>
 
             {isTauri && (
@@ -248,6 +248,16 @@ const App: React.FC = () => {
 
         {activeView === 'home' && (
           <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in duration-700">
+            {/* Desktop Mode Warning Banner */}
+            {isTauri && (
+              <div className="p-4 bg-indigo-600/10 border border-indigo-500/30 rounded-3xl flex items-center gap-3 animate-in slide-in-from-top-4">
+                <Info size={20} className="text-indigo-400 shrink-0" />
+                <p className="text-xs font-bold text-indigo-300">
+                  {t('桌面版目前使用範例輸出，未來將支援本地 AI 生成。')}
+                </p>
+              </div>
+            )}
+
             <div className="text-center space-y-6">
               <div className="inline-flex p-4 bg-indigo-600/10 rounded-3xl mb-4">
                 <BrainCircuit className="text-indigo-500 w-16 h-16" />
@@ -316,7 +326,7 @@ const App: React.FC = () => {
                     {isLoading ? (
                       <div className="flex items-center gap-3">
                         <RefreshCw className="animate-spin" />
-                        <span>{t('正在透過 Gemini 生成您的藍圖...')}</span>
+                        <span>{isTauri ? t('正在載入範例藍圖...') : t('正在透過 Gemini 生成您的藍圖...')}</span>
                       </div>
                     ) : (
                       <>{t('啟動 AI 教練')} <Rocket size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
