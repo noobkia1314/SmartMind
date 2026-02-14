@@ -9,7 +9,8 @@ interface State {
   hasError: boolean;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+// Use React.Component explicitly to ensure TypeScript correctly identifies standard properties
+class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false
   };
@@ -23,6 +24,9 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public render() {
+    // Destructure props to safely access children and satisfy strict TypeScript checking
+    const { children } = this.props;
+
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center">
@@ -40,8 +44,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Fix: access children via this.props instead of this.children
-    return this.props.children;
+    return children;
   }
 }
 
